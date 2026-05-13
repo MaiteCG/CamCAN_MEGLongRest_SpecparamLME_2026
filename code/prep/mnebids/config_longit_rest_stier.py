@@ -1,3 +1,42 @@
+"""
+CamCAN Longitudinal Resting-State MEG Preprocessing Configuration
+================================================================
+
+This script serves as the configuration file for the MNE-BIDS-Pipeline, 
+specifically tailored for the CamCAN (Cambridge Centre for Ageing and 
+Neuroscience) Phases 2 and 5 from the longitudinal resting-state MEG data.
+
+Key Functionalities:
+--------------------
+* **Environment Setup**: Automatically detects OS (Windows vs. Linux) to 
+  set paths for the 'maipy' library and project sandbox directories.
+* **Signal Processing**: Sets frequency filters (0.1 to 145 Hz) 
+  and downsampling to 300 Hz.
+* **Spatial Normalization**: Implements MaxFilter (tSSS) with movement 
+  compensation and head position transformation to a fixed Z-coordinate 
+  (44 mm) for cross-subject alignment.
+* **Artifact Management**: Configures automated bad channel detection 
+  and optional ICA preprocessing using the 'picard' algorithm.
+* **BIDS Integration**: Dynamically constructs 'rawdata' and 'derivatives' 
+  paths based on pipeline version and filter parameters.
+
+Usage:
+------
+This file is intended to be passed as the `--config` argument to the 
+MNE-BIDS-Pipeline execution command.
+
+Parameters:
+-----------
+task : str
+    Set to 'rest' for resting-state analysis.
+pipver : str
+    Pipeline version identifier (e.g., 'stier').
+trans : bool
+    If True, applies head position transformation to zmm.
+zmm : int
+    Target Z-coordinate in millimeters for head transformation.
+"""
+
 import mne
 import numpy as np
 import os

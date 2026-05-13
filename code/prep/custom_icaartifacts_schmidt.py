@@ -1,0 +1,217 @@
+
+"""
+custom_icaartifacts_schmidt.py
+
+Description: This script is used to identify the ica components that correspond to artifacts (EOG and ECG) following the method described in Schmidt et al., 2024. This step runs outside the automatic MNE-BIDS pipeline, but is applied to the longitudinal MEG data preprocessed with the automatic MNE-BIDS pipeline and then with custom_icastep.py.
+
+This script loads the icafit_ica.fif file created in the previous step (custom_icastep.py), then identifies the ICA components that correlate with EOG (r > 0.8) and ECG (r > 0.4) channels (see also code/preprocessing/stier/README.md).
+
+Author: Maité Crespo García
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
+Date: 21-Oct-2025
+"""
+# Imports
+import argparse
+import logging
+logger = logging.getLogger(__name__)
+import mne
+import numpy as np
+import os
+import pandas as pd
+import sys
+import time
+from picard import picard
+
+if os.name == 'nt':
+    cfgdir = r"U:\Documents\CamCAN\code\maipy"
+else:
+    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+
+sys.path.insert(1, cfgdir)
+import mcgdirs as dirs
+
+# ---- Main variables ----
+task = 'rest'
+phases = ['p2', 'p5']
+pipver = 'stier'
+arms = [1, 2]
+
+lfreq = 0.1 #Hz
+hfreq = 145.0 #Hz
+fsample = 300.0 #Hz
+frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
+
+trans = True # True
+zmm = 44 # destination z coordinate head position in mm
+
+overwrite = False
+
+icselection = 'eog08' #'ecg04eog08' #'ecg04' #
+
+# ---- specific parameters of bad epochs detection ----
+proc =  'sss' 
+cropdata = 532
+
+# ---- Directories and files ----
+load_deriv_folder = 'mne-bids-pipeline_stier'
+if trans:
+    save_deriv_folder = f'mne-bids-pipeline_{pipver}_filt{frange}_fs{int(fsample)}Hz_trans_z{zmm}mm'
+else:
+    save_deriv_folder = f'mne-bids-pipeline_{pipver}_filt{frange}_fs{int(fsample)}Hz'
+
+# ---- Logging ----
+# Directory where the log file will be saved
+taskref = 'rest'
+phaseref = 'p5' 
+armref = 1
+bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
+
+save_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                        'derivatives', save_deriv_folder)
+if not os.path.exists(save_deriv_root): os.makedirs(save_deriv_root)
+
+logdir = os.path.join(save_deriv_root,'logfiles')
+if not os.path.exists(logdir): os.makedirs(logdir)
+
+# Set up log file
+logfile = os.path.join(logdir, f'custom_icaartifacts_schmidt.log')
+logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
+
+# ---- File with subjects and arms ----
+subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{task}_subjects.tsv')
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--subject', type=str, default=None, dest='subject', action='store')
+    parser.add_argument('--phase', type=str, default=None, dest='phase', action='store')
+    args = parser.parse_args()
+    print(args)
+    print(args.subject)
+    print(args.phase)
+
+     # Read file with subjects and arms
+    subjectsdf = pd.read_csv(subjlistfile, sep='\t').set_index('subject')
+
+    if args.subject is not None:
+        subjects = [args.subject]
+    else:
+        subjects = subjectsdf.index.tolist()
+
+    if args.phase is not None:
+        phases_to_process = [args.phase]
+    else:
+        phases_to_process = phases
+
+    for id in subjects:
+        armx = subjectsdf.loc[id,'arm']
+
+        for phase in phases_to_process:
+            t0 = time.time()
+
+            # ---- Define the outcome files ----
+            bids_project_folder = f'BIDS_long_{phase}_{task}_arm{armx}'
+            load_deriv_dir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                    'derivatives', save_deriv_folder)            
+            loaddir = os.path.join(load_deriv_dir, 'sub-'+id, 'meg')
+
+            # ---- Outcome file 1: tsv file with the components and artifact labels ----
+            tsvfilename = f'sub-{id}_task-{task}_proc-ica_desc-{icselection}_components.tsv'
+            tsvfile = os.path.join(loaddir, tsvfilename)
+
+            if os.path.exists(tsvfile) and not overwrite:
+                msg = f'Subject {id} in phase {phase} already has an ICA selection tsv file. Skipping'
+                print(msg)
+                logger.info(msg)
+                continue
+
+            # ---- Initialize the dataframe to save the ICA component selection ----
+            compdf = pd.DataFrame(columns=['component','status','status_description', 'ECG-corr', 'EOG-corr'])
+            
+
+            # ---- Read the ica fit file generated in the previous step (custom_icastep.py) ----
+            icafilename = f'sub-{id}_task-{task}_proc-icafit_ica.fif'
+            icafile = os.path.join(loaddir, icafilename)
+
+            if not os.path.exists(icafile):
+                msg = f'Subject {id} in phase {phase} does not have an ICA fit file. Skipping.'
+                print(msg)
+                logger.warning(msg)
+                continue
+
+            ica = mne.preprocessing.read_ica(icafile)
+
+            compdf['component'] = range(ica.n_components_)
+            compdf = compdf.set_index('component')
+            compdf.status = 'good'
+            compdf.status_description = 'n/a'
+
+
+            # ---- Read the epochs data ----
+            epochsfilename = f'sub-{id}_task-{task}_epo.fif'
+            epochsfile = os.path.join(loaddir, epochsfilename)
+
+            if not os.path.exists(epochsfile):
+                msg = f'Subject {id} in phase {phase} does not have an epoch file. Skipping.'
+                print(msg)
+                logger.warning(msg)
+                continue
+
+            epochs = mne.read_epochs(epochsfile)
+
+            # ---- Identify EOG and ECG channels ----
+            eogchans = mne.pick_types(epochs.info, meg=False, eog=True, ecg=False, exclude=[])
+            eogchans = [epochs.ch_names[ch] for ch in eogchans]
+            ecgchans = mne.pick_types(epochs.info, meg=False, eog=False, ecg=True, exclude=[])
+            ecgchans = [epochs.ch_names[ch] for ch in ecgchans]
+
+            # ---- Select ECG artifacts with correlation method (r > 0.4) ----
+            #
+            if icselection in ['ecg04', 'ecg04eog08']: 
+                ch_name = ecgchans[0]
+                ecg_idx, scores = ica.find_bads_ecg(
+                    epochs, ch_name=ch_name, threshold=0.4, start=None, stop=None, 
+                    l_freq=8, h_freq=16, method='correlation', reject_by_annotation=True, 
+                    measure='correlation', verbose=None)
+                
+                scores = abs(scores).tolist()                
+                ecg_idx = [i for i in range(len(scores)) if scores[i] > 0.4]
+                
+                for idx in ecg_idx:                
+                    compdf.loc[idx, 'status'] = 'bad'
+                    compdf.loc[idx, 'status_description'] = f'cardiac ({ch_name})'
+                    compdf.loc[idx, 'ECG-corr'] = scores[idx]
+                
+                del scores, ecg_idx
+
+            # ---- Select EOG artifacts with correlation method (r > 0.8) ----
+            if icselection in ['eog08', 'ecg04eog08']: 
+                
+                for ch_name in eogchans:
+                    eog_idx, scores = ica.find_bads_eog(
+                        epochs, ch_name=ch_name, threshold=0.8, start=None, stop=None, 
+                        l_freq=1, h_freq=48, reject_by_annotation=True, 
+                        measure='correlation', verbose=None
+                    )                
+                
+                    scores = abs(scores).tolist()
+                    eog_idx = [i for i in range(len(scores)) if scores[i] > 0.8]
+
+                    for idx in eog_idx:                
+                        compdf.loc[idx, 'status'] = 'bad'
+                        compdf.loc[idx, 'status_description'] = compdf.loc[idx, 'status_description'] + f', ocular ({ch_name})'
+                        compdf.loc[idx, 'EOG-corr'] = scores[idx]
+
+                    del scores, eog_idx
+
+            # -------------------------------------------------------------
+            # Save the new ICA component selection
+            compdf.to_csv(tsvfile, sep='\t')
+
+            t1 = time.time()
+            deltat = t1 - t0                    
+            msg = f'Subject {id} in phase {phase}: ECG and EOG components selected in {deltat:.2f} seconds.'
+            print(msg)
+            logger.info(msg)
+
+if __name__ == "__main__":
+    main()

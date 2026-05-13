@@ -1,0 +1,16 @@
+{
+    "epoch_duration": 2,
+    "powmethod": "WL",
+    "fres": 0.5,
+    "freq_range": [
+        2,
+        40
+    ],
+    "peak_width_limits": [
+        1,
+        6
+    ],
+    "min_peak_height": 0.05,
+    "peak_threshold": 1.5,
+    "max_n_peaks": 6
+}

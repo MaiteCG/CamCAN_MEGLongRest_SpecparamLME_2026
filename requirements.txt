@@ -6,6 +6,7 @@ matplotlib
 # MNE Ecosystem
 mne
 mne-bids
+mne-bids-pipeline
 
 # Spatial and Artifact Processing
 python-picard        # Provides the 'picard' ICA algorithm

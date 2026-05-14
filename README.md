@@ -1,6 +1,48 @@
 # CamCAN_MEGLongRest_SpecParamLME_2026
 
-Analysis repository for paper "**Longitudinal versus Cross-sectional effects of Age on MEG Power SpectraParameters: Implications for Normative Models and Brain Ageing**", Authors: Maite Crespo-Garcia, Dace Apšvalka, Ina Demetriou, Adam Attaheri, Tina Bingham, Máté Aller, Cam-CAN & Richard Henson.
+This repository contains analysis code for the following manuscript: 
+
+Title: **Longitudinal versus Cross-sectional effects of Age on MEG Power Spectra Parameters: Implications for Normative Models and Brain Ageing**
+
+Authors: Maite Crespo-Garcia, Dace Apšvalka, Ina Demetriou, Adam Attaheri, Tina Bingham, Máté Aller, Cam-CAN & Richard Henson.
+
+
+
+## Code Description
+
+### Preprocessing
+
+The configuration files for the **MNE-BIDS automatic pipeline** are located in `code/prep/mnebids`:
+
+- `config_rest.py`:  Configuration for automatic preprocessing of **rest MEG** data.
+
+- `config_emptyroom.py`: Configuration for automatic preprocessing of **empty room** MEG data associated to resting-state MEG data.
+  
+  
+
+The **custom** Python files for other **preprocessing steps** are located in `code/prep`:
+
+- `custom_bad_epochs.py`: Detects bad epochs in **rest MEG** data using muscle artifact z-scoring. Saves the indexes of the good epochs to be used later in the pipeline.
+
+- `custom_icastep.py`: Executes a customized ICA fitting procedure on filtered **rest MEG** data, after removing bad epochs detected with the `custom_bad_epocs.py` script.
+
+- `custom_icaartifacts_schmidt.py`: This script identifies ICA components corresponding to EOG (ocular) and ECG (cardiac) artifacts by applying the correlation-based thresholding method described in Schmidt et al. (2025 eLife).
+
+- `custom_remove_icaartifacts.py`: Applies the ICA rejection identified in `custom_icaartifacts_schmidt.py` to the filtered **rest MEG** data. It serves as the final cleaning step before downstream analysis. Alternatively, it can also create another **control rest MEG data only with ocular artifacts (but not cardiac) removed**.
+
+- `custom_remove_allbutecg04.py`: Performs a selective ICA-based cleaning to create a **control dataset only with cardiac ICs (most of brain activity removed)**. It removes all independent components EXCEPT those identified as cardiac (ECG-related) artifacts in `custom_icaartifacts_schmidt.py`.
+  
+  
+
+### Spectral analyses
+
+### Statistical analyses
+
+### Figures and tables
+
+Give an overview of the program files and their purposes. Remove redundant or obsolete files from the replication archive. For example, main.do sets file paths, installs necessary ADO packages, and executes all other dofiles. Meanwhile, cleaning.do loads data, handles missing values, and analysis.do performs basic statistical analysis and generate visualizations.
+
+Make sure to also include any crucial information that replicators should be aware of to facilitate a one-click run of the code.
 
 ## Dependencies (incomplete list):
 
@@ -114,11 +156,7 @@ Example:
 
 Provide consistent information about memory resources for reliable computation. Include runtime information for replicators to assess processing times and detect potential issues with the code. It would be best to describe how much storage is required in addition to the space visible in the typical repository, for instance, because data will be unzipped, data downloaded, or temporary files written.
 
-## Code Description
-
-Give an overview of the program files and their purposes. Remove redundant or obsolete files from the replication archive. For example, main.do sets file paths, installs necessary ADO packages, and executes all other dofiles. Meanwhile, cleaning.do loads data, handles missing values, and analysis.do performs basic statistical analysis and generate visualizations. 
-
-Make sure to also include any crucial information that replicators should be aware of to facilitate a one-click run of the code.
+## 
 
 ## Folder Structure
 

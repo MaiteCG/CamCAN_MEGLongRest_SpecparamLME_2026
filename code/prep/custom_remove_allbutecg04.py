@@ -1,3 +1,27 @@
+"""
+Selective Artifact Removal: Retaining Cardiac Components Only.
+
+This script performs a selective ICA-based cleaning to create a control 
+dataset only with cardiac ICs (most of brain activity removed). It removes all independent components EXCEPT those identified as cardiac (ECG-related) artifacts in 'custom_icaartifacts_schmidt.py'.
+
+Purpose:
+- To be used for control analyses (e.g., assessing the impact of cardiac 
+  artifacts on the estimation of the aperiodic exponent).
+- Effectively isolates the cardiac signature within the MEG sensor space 
+  by filtering out both neural activity and non-cardiac noise.
+
+Processing Steps:
+1. Loads the ICA classification results (.tsv).
+2. Identifies components whose 'status_description' contains 'ECG'.
+3. Defines all other components (neural, ocular, etc.) as 'badics'.
+4. Applies the ICA solution to the raw data to remove everything but 
+   the isolated cardiac signal.
+5. Saves the result with the 'allbutecg04' processing tag.
+
+Author: Maité Crespo García
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
+Date: 21-Oct-2025
+"""
 
 """
 custom_remove_allbutecg04.py

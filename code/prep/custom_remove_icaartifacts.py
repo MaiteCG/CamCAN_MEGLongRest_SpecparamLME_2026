@@ -1,10 +1,18 @@
 
 """
-custom_remove_icaartifacts.py
+Removal of Identified ICA Artifacts from Filtered Raw MEG Data.
 
-Description: This script is used to remove the ica components that were identified as cardiac or ocular artifacts in a previous step (e.g., custom_icaartifacts_schmidt.py). This step runs outside the automatic MNE-BIDS pipeline, but is applied to the longitudinal MEG data preprocessed initially with the automatic MNE-BIDS pipeline and then with custom scripts.
+This script applies the ICA rejection identified in 'custom_icaartifacts_schmidt.py' 
+to the filtered rest MEG data. It serves as the final cleaning step before 
+downstream analysis (e.g., power spectra calculation or source localization). Alternatively, it can also create another control rest MEG data only with ocular artifacts (but not cardiac) removed.
 
-This script loads the _components.tsv file with the ica components and labels (see also code/preprocessing/stier/README.md).
+Processing Steps:
+1. Loads the artifact classification results from a .tsv file.
+2. Loads the ICA decomposition solution (.fif).
+3. Loads the continuous filtered raw data.
+4. Zeroes out the contributions of the 'bad' independent components (EOG/ECG).
+5. Reconstructs the sensor-level data without the artifacts.
+6. Saves the cleaned raw data with a specific processing description tag.
 
 Author: Maité Crespo García
 Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
@@ -18,27 +26,24 @@ import mne
 import numpy as np
 import os
 import pandas as pd
-import sys
 import time
 from picard import picard
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# ---- Main variables ----
 task = 'rest'
 phases = ['p2', 'p5']
-pipver = 'stier'
 arms = [1, 2]
 
-lfreq = 0.1 #Hz
-hfreq = 145.0 #Hz
-fsample = 300.0 #Hz
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
+lfreq = 0.1 # Hz, high-pass filter cutoff frequency. 
+hfreq = 145.0 # Hz, low-pass filter cutoff frequency. 
+fsample = 300.0 # Hz, resampling frequency.
 frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
 
 trans = True # whether to use head-transformed data or not
@@ -46,7 +51,7 @@ zmm = 44 # destination z coordinate head position in mm
 
 overwrite = False
 
-icselection = 'eog08'# 'ecg04eog08' #'ecg04' #
+icselection = 'ecg04eog08' #'eog08'# 'ecg04' #
 proc =  'filt'
 
 # ---- Directories and files ----
@@ -63,7 +68,7 @@ phaseref = 'p5'
 armref = 1
 bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 
-save_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+save_deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', save_deriv_folder)
 if not os.path.exists(save_deriv_root): os.makedirs(save_deriv_root)
 
@@ -75,7 +80,7 @@ logfile = os.path.join(logdir, f'custom_remove_icaartifacts.log')
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{task}_subjects.tsv')
+subjlistfile = os.path.join(maindir,f'meglong_{task}_subjects.tsv')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -107,7 +112,7 @@ def main():
 
             # ---- Define the outcome files ----
             bids_project_folder = f'BIDS_long_{phase}_{task}_arm{armx}'
-            load_deriv_dir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            load_deriv_dir = os.path.join(maindir, bids_project_folder,
                     'derivatives', save_deriv_folder)            
             loaddir = os.path.join(load_deriv_dir, 'sub-'+id, 'meg')
 

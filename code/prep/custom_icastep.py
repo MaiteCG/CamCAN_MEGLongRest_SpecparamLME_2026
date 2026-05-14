@@ -1,10 +1,16 @@
-
 """
-custom_icastep.py
+Independent Component Analysis (ICA) for Longitudinal MEG Data.
 
-Description: This script is used to run the ica step outside the automatic MNE-BIDS pipeline on good epochs (obtained with bad_epochs_stier.py script) to the longitudinal MEG data preprocessed with the automatic MNE-BIDS pipeline.
+This script executes a customized ICA fitting procedure on filtered MEG data, after removing bad epochs detected with the 'custom_bad_epocs.py' script. It bypasses the standard MNE-BIDS pipeline
+ICA to ensure that the ICA fit is applied to data without big movement/muscle artifacts.
 
-After the initial preprocessing with the MNE-BIDS pipeline, this script 1) loads the raw filtered data, 2) high-pass the data at 1 Hz, 3) segment the data into 10-s epochs, 4) drop the bad epochs identified with bad_epochs_stier.py, 5) run the ICA with picard method (same parameters as the automatic pipeline) and 6) save the ica fit file (see also code/preprocessing/stier/README.md).
+Processing Steps:
+1. Loads preprocessed, MaxFiltered, and filtered raw data obtained with the automatic pipeline.
+2. Applies a 1 Hz high-pass filter (recommended for stable ICA decomposition).
+3. Segments data into 10-second fixed-length epochs.
+4. Removes epochs previously identified as "bad" using external .npy file (created with custom_bad_epocs.py script).
+5. Fits ICA using the 'picard' algorithm (optimized for speed and stability).
+6. Saves the ICA solution and cleans up redundant pipeline files.
 
 Author: Maité Crespo García
 Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
@@ -13,33 +19,31 @@ Date: 20-Oct-2025
 
 # Imports
 import argparse
+import gc
 import logging
 logger = logging.getLogger(__name__)
 import mne
 import numpy as np
 import os
 import pandas as pd
-import sys
 import time
 from picard import picard
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# ---- Main variables ----
 task = 'rest'
 phases = ['p2', 'p5']
-pipver = 'stier'
 arms = [1, 2]
 
-lfreq = 0.1 #Hz
-hfreq = 145.0 #Hz
-fsample = 300.0 #Hz
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
+lfreq = 0.1 # Hz, high-pass filter cutoff frequency. 
+hfreq = 145.0 # Hz, low-pass filter cutoff frequency. 
+fsample = 300.0 # Hz, resampling frequency.
 frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
 
 trans = True # True
@@ -67,9 +71,8 @@ if usenew:
 taskref = 'rest'
 phaseref = 'p5' 
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 
-save_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+save_deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', save_deriv_folder)
 if not os.path.exists(save_deriv_root): os.makedirs(save_deriv_root)
 
@@ -81,7 +84,7 @@ logfile = os.path.join(logdir, f'custom_icastep.log')
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{task}_subjects.tsv')
+subjlistfile = os.path.join(maindir,f'meglong_{task}_subjects.tsv')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -113,7 +116,7 @@ def main():
 
             # ---- Define the ICA file to be saved ----
             bids_project_folder = f'BIDS_long_{phase}_{task}_arm{armx}'
-            load_deriv_dir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            load_deriv_dir = os.path.join(maindir, bids_project_folder,
                     'derivatives', save_deriv_folder)            
             loaddir = os.path.join(load_deriv_dir, 'sub-'+id, 'meg')
 
@@ -128,7 +131,7 @@ def main():
 
             # ---- Define file with good epochs information ----
             #
-            goodepochs_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            goodepochs_derivdir = os.path.join(maindir, bids_project_folder,
                     'derivatives', load_deriv_folder)
             megdir = os.path.join(goodepochs_derivdir, 'sub-'+id, 'meg')
 
@@ -165,13 +168,14 @@ def main():
             # ---- High-pass filter at 1 Hz for ICA ----
             filt_raw = raw.copy().filter(l_freq=1.0, h_freq=None)
             del raw
+            gc.collect() #to force the Python garbage collector to free up the MEG data from RAM immediately.
 
             # ---- Create epochs of 10s ----
             epochs = mne.make_fixed_length_epochs(filt_raw, duration=10)
 
             # ---- Drop bad epochs ----
             indices = [i for i in epochs.selection if i not in good_epochs]
-            epochs.drop(indices, reason='Bad epochs added from bad_epochs_stier.py')
+            epochs.drop(indices, reason='Bad epochs added from custom_bad_epochs.py')
 
             # ---- Fit ICA ----
             ica = mne.preprocessing.ICA(n_components=None, method='picard',

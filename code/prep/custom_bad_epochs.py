@@ -1,17 +1,27 @@
-# bad_epochs_stier_2s.py
 """
-bad_epochs_stier_2s.py
+Detects bad epochs in MEG data using muscle artifact z-scoring. Saves the indexes 
+of the good epochs to be used later in the pipeline.
 
-Description: This script implements the procedure for detecting bad epochs as described in Stier et al., 2023. NeuroImage 278, except that the data is segmented into 2 s epochs instead of 10 s.
+This script implements an automated artifact rejection procedure based on 
+Stier et al. (2023), NeuroImage 278. It processes MaxFiltered (SSS) data by:
+1. Resampling to 300 Hz and high-pass filtering at 1 Hz.
+2. Calculating z-scores for muscle activity in the 110-140 Hz band.
+3. Marking artifacts using a z-score threshold (default = 14).
+4. Segmenting data into 2-second epochs and dropping those containing artifacts.
 
-- To be used after maxfilter (sss).
-Method from Stier et al. (2023): "We resampled the data to 300 Hz, initially high-pass filtered at 1 Hz (first order Butterworth), and segmented the data into trials of 10 s [NOTE: here 2 s] length. Trials containing artifacts were removed following an automatic approach for both MEG channel types separately (see https://www.fieldtriptoolbox.org/tutorial/automatic_artifact_rejection/ for further details). In brief, the data was bandpass filtered at 110 to 140 Hz (9th order Butterworth) for optimal detection of muscle artifacts and z-transformed for each channel and timepoint. The z- transformed values were averaged over all channels so that artifacts accumulated and could be detected in a time course representing standardized deviations from the mean of all channels. Finally, all time points that belonged to the artifact were marked using artifact padding, and data trials whose z-values were above a threshold of 14 were excluded."
+Key differences from the original paper:
+- Data is segmented into 2 s epochs instead of 10 s.
+
+Outputs:
+- .npy files containing detected muscle scores and good epoch indices.
+- .tsv file summarizing the number of good epochs per subject/phase.
+- .html MNE Report for visual quality control of muscle scores and drop logs.
 
 Author: Maité Crespo García
 Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
 Date: 20-Oct-2025
 """
-# Imports
+
 import argparse
 import mne
 from mne.preprocessing import annotate_muscle_zscore
@@ -19,41 +29,38 @@ import numpy as np
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import sys
 import time
 import logging
 logger = logging.getLogger(__name__)
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# Main variables
-phases = ['p2', 'p5']
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
 task = 'rest'
-pipver = 'stier'
+phases = ['p2', 'p5']
 arms = [1, 2]
-
-lfreq = 0.1 #Hz
-hfreq = 145.0 #Hz
-fsample = 300.0 #Hz
+lfreq = 0.1 # Hz, high-pass filter cutoff frequency. 
+hfreq = 145.0 # Hz, low-pass filter cutoff frequency. 
+fsample = 300.0 # Hz, resampling frequency.
 frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
 
-trans = True
+trans = True # whether to apply head position transformation to a fixed Z-coordinate for cross-subject alignment
 zmm = 44 # destination z coordinate head position in mm
 
-proc =  'sss' 
+proc =  'sss' # the preprocessing step to which the bad epochs detection will be applied, e.g. 'sss' for MaxFiltered data (no filters applied yet).
 cropdata = 532
 
-epochdur = 2  #10 #seconds
+epochdur = 2  # 2 or 10 seconds, Duration of epochs for bad epoch detection. 
 
-overwrite = False
+overwrite = False # Whether to overwrite the output files.
 
-# ---- Directories and files ----
+# The name of the derivatives folder below should match the one created when 
+# running the automatic preprocessing MNE-BIDS pipeline with the config files.
 if trans:
     deriv_folder = f'mne-bids-pipeline_{pipver}_filt{frange}_fs{int(fsample)}Hz_trans_z{zmm}mm'
 else:
@@ -62,19 +69,18 @@ else:
 # Directory where figures and stats will be saved (also the log file of this step)
 phaseref = 'p5' 
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{task}_arm{armref}'
-deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', deriv_folder)
 
 logdir = os.path.join(deriv_root,'bad_epochs')
 if not os.path.exists(logdir): os.makedirs(logdir)
 
 # Set up log file
-logfile = os.path.join(logdir, f'bad_epochs_stier_2s.log')
+logfile = os.path.join(logdir, f'custom_bad_epochs.log')
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{task}_subjects.tsv')
+subjlistfile = os.path.join(maindir,f'meglong_{task}_subjects.tsv')
 
 def main():
 
@@ -121,7 +127,7 @@ def main():
             t0 = time.time()
 
             bids_project_folder = f'BIDS_long_{phase}_{task}_arm{armx}'
-            derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            derivdir = os.path.join(maindir, bids_project_folder,
                     'derivatives', deriv_folder)
             
             megdir = os.path.join(derivdir, 'sub-'+id, 'meg')

@@ -66,7 +66,6 @@ else:
 taskref = 'rest'
 phaseref = 'p5' 
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 
 save_deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', save_deriv_folder)

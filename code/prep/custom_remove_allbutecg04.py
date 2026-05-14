@@ -23,19 +23,6 @@ Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
 Date: 21-Oct-2025
 """
 
-"""
-custom_remove_allbutecg04.py
-
-Description: This script is used to remove all ica components except those identified as cardiac artifacts in a previous step (e.g., custom_icaartifacts_schmidt.py). This step runs outside the automatic MNE-BIDS pipeline, but is applied to the longitudinal MEG data preprocessed initially with the automatic MNE-BIDS pipeline and then with custom scripts.
-
-The dataset created with this script will be used for a control analysis to assess the impact of cardiac artifacts in the estimation of the aperiodic exponent.
-
-This script loads the _components.tsv file with the ica components and labels (see also code/preprocessing/stier/README.md).
-
-Author: Maité Crespo García
-Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
-Date: 21-Oct-2025
-"""
 # Imports
 import argparse
 import logging
@@ -44,27 +31,24 @@ import mne
 import numpy as np
 import os
 import pandas as pd
-import sys
 import time
 from picard import picard
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# ---- Main variables ----
 task = 'rest'
 phases = ['p2', 'p5']
-pipver = 'stier'
 arms = [1, 2]
 
-lfreq = 0.1 #Hz
-hfreq = 145.0 #Hz
-fsample = 300.0 #Hz
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
+lfreq = 0.1 # Hz, high-pass filter cutoff frequency. 
+hfreq = 145.0 # Hz, low-pass filter cutoff frequency. 
+fsample = 300.0 # Hz, resampling frequency.
 frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
 
 trans = True
@@ -88,9 +72,8 @@ else:
 taskref = 'rest'
 phaseref = 'p5' 
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 
-save_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+save_deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', save_deriv_folder)
 if not os.path.exists(save_deriv_root): os.makedirs(save_deriv_root)
 
@@ -102,7 +85,7 @@ logfile = os.path.join(logdir, f'custom_remove_icaartifacts.log')
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{task}_subjects.tsv')
+subjlistfile = os.path.join(maindir,f'meglong_{task}_subjects.tsv')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -136,7 +119,7 @@ def main():
 
             # ---- Define the outcome files ----
             bids_project_folder = f'BIDS_long_{phase}_{task}_arm{armx}'
-            load_deriv_dir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            load_deriv_dir = os.path.join(maindir, bids_project_folder,
                     'derivatives', save_deriv_folder)            
             loaddir = os.path.join(load_deriv_dir, 'sub-'+id, 'meg')
 

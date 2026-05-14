@@ -1,12 +1,20 @@
-# psd_ecg_long_2s.py
 """
-psd_ecg_long_2s_likeMEG.py
+Power Spectral Density (PSD) Computation for Longitudinal rest MEG.
 
-Description: This script is used to compute the power spectral density (PSD) of the ECG channel for MEG longitudinal data. On 2 s epochs.
+This script computes the power spectrum for rest MEG data that has been cleaned of 
+ocular and cardiac ICA artifacts (via 'custom_remove_icaartifacts.py'), and other
+control MEG datasets with different ICA removal treatments.
+
+Processing Steps:
+1. Loads the ICA-cleaned continuous raw MEG data.
+2. Crops the data to a standardized length (532 seconds).
+3. Segments the continuous data into 2-second fixed-length epochs.
+4. Computes the PSD for MEG channels in the 0.5–145 Hz frequency range.
+5. Saves the resulting PSD object in HDF5 format for group-level analysis.
 
 Author: Maité Crespo García
 Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
-Date: 23-Dec-2025
+Date: 21-Oct-2025 (last modified)
 """
 
 # Imports
@@ -14,28 +22,24 @@ import argparse
 import mne
 import os
 import pandas as pd
-import sys
 import time
 import logging
 logger = logging.getLogger(__name__)
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# ---- Main variables ----
-phases = ['p2', 'p5']
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
 task = 'rest'
-pipver = 'stier'
+phases = ['p2', 'p5']
 arms = [1, 2]
-
-lfreq = 0.1 #Hz
-hfreq = 145.0 #Hz
-fsample = 300.0 #Hz
+lfreq = 0.1 # Hz, high-pass filter cutoff frequency. 
+hfreq = 145.0 # Hz, low-pass filter cutoff frequency. 
+fsample = 300.0 # Hz, resampling frequency.
 frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
 
 epochdur = 2  # seconds
@@ -44,20 +48,20 @@ fres = 0.1 if epochdur==10 else (0.5 if epochdur==2 else None) # Frequency resol
 #sfres = f'fres{str(fres).replace('.','p')}Hz' if fres != 0.1 else ''
 # fres is redundant with epochdur, so not included in the filename
 
-trans = False # Whether to use head transformation or not
+trans = True # True # Whether to use head transformation or not
 zmm = 44 # destination z coordinate head position in mm
 
-channelselection = 'ECG'  # 'meg' #
-proc =  'sss'  # 'raw' #
+icselection = 'ecg04eog08' # 'eog08' #'allbutecg04' # 
+proc =  'filt' + icselection  # 'sssgolan' # 'sss'
 
-overwrite = False
+overwrite = False  # Whether to overwrite existing PSD files or not
 
 cropdata = 532
 
 powmethod = 'welch' #'multitaper'  # 
 powabbr = 'WL' if powmethod=='welch' else ('MT' if powmethod=='multitaper' else '')
 
-exclude_subjects = ['CC520552', 'CC520597'] #'CC420094', 'CC520562', 
+exclude_subjects = ['CC520552', 'CC520597'] #'CC520562', 'CC420094', 
 
 # ---- Directories and files ----
 load_deriv_folder = 'mne-bids-pipeline_stier'
@@ -71,9 +75,8 @@ else:
 taskref = 'rest'
 phaseref = 'p5' 
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 
-save_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+save_deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', save_deriv_folder)
 if not os.path.exists(save_deriv_root): os.makedirs(save_deriv_root)
 
@@ -81,11 +84,11 @@ logdir = os.path.join(save_deriv_root, 'logfiles')
 if not os.path.exists(logdir): os.makedirs(logdir)
 
 # Set up log file
-logfile = os.path.join(logdir, f'psd_ecg_long_{proc}likemeg.log')
+logfile = os.path.join(logdir, f'psd_long_{proc}.log')
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{task}_subjects.tsv')
+subjlistfile = os.path.join(maindir,f'meglong_{task}_subjects.tsv')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -117,11 +120,11 @@ def main():
 
             # ---- Define the output file (psd) ----
             bids_project_folder = f'BIDS_long_{phase}_{task}_arm{armx}'
-            derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            derivdir = os.path.join(maindir, bids_project_folder,
                     'derivatives', save_deriv_folder)
             megdir = os.path.join(derivdir, 'sub-'+id, 'meg')
 
-            savefilename = f'sub-{id}_task-{task}_proc-{proc}{channelselection}likemeg_desc-dur{cropdata}sepo{epochdur}s{powabbr}_psd.hdf5'
+            savefilename = f'sub-{id}_task-{task}_proc-{proc}_desc-dur{cropdata}sepo{epochdur}s{powabbr}_psd.hdf5'
             psdfile = os.path.join(megdir, savefilename)
 
             # ---- Check if PSD already computed ----
@@ -140,11 +143,11 @@ def main():
                 msg = f'Subject {id} in phase {phase}: clean file does not exist, skipping.'
                 print(msg)
                 logger.warning(msg)
-                pd.DataFrame().to_csv(os.path.join(megdir, 'error.txt'))
+                pd.DataFrame().to_csv(os.path.join(megdir, 'error2.txt'))
                 continue
 
             # ---- Compute PSD ----
-            raw = mne.io.read_raw_fif(cleanfile, preload=True).pick('ecg')
+            raw = mne.io.read_raw_fif(cleanfile, preload=False)
             
             # ---- Check data duration ----
             tmax = cropdata - 0.004  # 10 seconds minus 4 ms for the last sample
@@ -154,32 +157,9 @@ def main():
                 logger.error(msg)
                 continue
 
-            # ---- Preprocessing: filter the data ----
-            
-            # -------------------------------
-            # 2. Baseline wandering correction
-            # -------------------------------
-            # High-pass filter at 0.5 Hz (sometimes 0.3 Hz if needed)
-            raw = raw.filter(l_freq=0.1, h_freq=145.0, picks="ecg")
-
-            # -------------------------------
-            # 3. Line noise removal
-            # -------------------------------
-            # Notch filter at 50 Hz (Europe) or 60 Hz (US)
-            # Add harmonics if necessary, e.g., [50, 100] or [60, 120]
-            raw = raw.notch_filter(freqs=[50, 100, 150], picks="ecg")
-
-            # -------------------------------
-            # 4. Resample the data if necessary
-            # -------------------------------
-            if raw.info['sfreq'] != fsample:
-                raw.resample(sfreq=fsample, npad='auto')
-                msg = f'Subject {id} in phase {phase}: data resampled to {fsample} Hz.'
-                print(msg)
-                logger.info(msg)
-
             # ---- Crop the data to the desired duration ----
             raw.crop(tmin=0, tmax=tmax)
+            fsample = raw.info['sfreq']
 
             # ---- Create epochs ----
             epochs = mne.make_fixed_length_epochs(raw, duration=epochdur, preload=False)
@@ -187,18 +167,18 @@ def main():
             # ---- Compute PSD for meg data ----
             if powmethod == 'multitaper':
                 psd = epochs.compute_psd(
-                    method=powmethod, fmin=0.5, fmax=145, picks='ecg', exclude='bads', 
+                    method=powmethod, fmin=0.5, fmax=145, picks='meg', exclude='bads', 
                     bandwidth=1, output='power', tmin=0, tmax=epochdur, adaptive=True, 
                     normalization='full'
                     )
             elif powmethod == 'welch':
                 psd = epochs.compute_psd(
-                    method=powmethod, fmin=0.5, fmax=145, picks='ecg', exclude='bads', 
+                    method=powmethod, fmin=0.5, fmax=145, picks='meg', exclude='bads', 
                     output='power', tmin=0, tmax=epochdur,
                     window='hamming', n_fft=int(fsample/fres)
                 )
                 '''psd = epochs.compute_psd(
-                    method=powmethod, fmin=1, fmax=145, picks='ecg', exclude='bads', 
+                    method=powmethod, fmin=1, fmax=145, picks='meg', exclude='bads', 
                     output='power', tmin=0, tmax=epochdur,
                     remove_dc=True,
                     n_per_seg=int(raw.info['sfreq']),

@@ -4,7 +4,7 @@ This repository contains analysis code for the following manuscript:
 
 Title: **Longitudinal versus Cross-sectional effects of Age on MEG Power Spectra Parameters: Implications for Normative Models and Brain Ageing**
 
-Authors: Maite Crespo-Garcia, Dace Apšvalka, Ina Demetriou, Adam Attaheri, Tina Bingham, Máté Aller, Cam-CAN & Richard Henson.
+Authors: Maite Crespo-Garcia, Dace Apšvalka, Ina Demetriou, Adam Attaheri, Tina Emery, Máté Aller, Cam-CAN & Richard Henson.
 
 
 
@@ -19,6 +19,10 @@ The configuration files for the **MNE-BIDS automatic pipeline** are located in `
 - `config_emptyroom.py`: Configuration for automatic preprocessing of **empty room** MEG data associated to resting-state MEG data.
   
   
+
+The preprocessing of the **ECG channel** is performed within the script that computes the spectral power (see below). 
+
+
 
 The **custom** Python files for other **preprocessing steps** are located in `code/prep`:
 
@@ -36,7 +40,17 @@ The **custom** Python files for other **preprocessing steps** are located in `co
 
 ### Spectral analyses
 
+- `psd_rest.py`: Computes the **power spectrum** for **rest MEG** data that has been cleaned of ocular and cardiac ICA artifacts (via `custom_remove_icaartifacts.py`), and other **control MEG datasets** with different ICA removal treatments.
+
+- `psd_emptyroom.py`: Computes the **power spectrum** for **empty room** recordings associated with specific rest MEG recordings.
+
+- `psd_ecg.py`: Preprocesses and computes the **power spectrum** of the **ECG channel**.
+  
+  
+
 ### Statistical analyses
+
+
 
 ### Figures and tables
 

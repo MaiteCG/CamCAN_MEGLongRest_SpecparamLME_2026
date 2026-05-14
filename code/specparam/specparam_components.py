@@ -1,20 +1,27 @@
-'''
-aperiodic_long_components.py
+"""
+Reconstruction of Spectral Components (Periodic vs. Aperiodic) from rest MEG PSDs.
 
-Description: This script extracts the periodic or aperiodic components of the power spectrum of rest recordings from longitudinal Cam-CAN MEG data, using the FOOOF method as implemented in the specparam package. Specifically used to obtain the power of periodic peaks detected on subjects rest data, to then subtract the empty room power from the subjects peak power, and re-run the LME with permutation analysis. This is part of a control analysis to check the influence of empty room noise (e.g., due to MEG system change) on the age-related effects observed in rest power.
+This script decomposes the modeled Power Spectral Density (PSD) from rest MEG data 
+back into its constituent parts: the 'periodic' signal (oscillatory peaks only) and 
+the 'aperiodic' signal (1/f background only).
+
+Used to obtain the aperiodic PSD of rest MEG data (created with `psd_rest.py`), for later normalization of empty room peak power values (see Methods).
+
+Processing Steps:
+1. Loads the SpecParam model results for a subject.
+2. Reconstructs the modeled spectra in a specific space (linear or log).
+3. If 'aperiodic' is requested: Drops peaks to isolate the 1/f fit.
+4. If 'periodic' is requested: Subtracts the aperiodic fit from the full 
+   modeled spectrum.
+5. Saves the resulting frequency-by-channel arrays as .npy files.
 
 Author: Maité Crespo García
-Affiliation: MRC Cognition and Brain Sciences Unit, University of Cambridge
-Date: 12-Jan-2026 (created, modified from aperiodic_long_emptyroom_components.py, aperiodic_stier_components.py)
-
-'''
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
+Date: 12-Jan-2026 (last modified)
+"""
 
 # Imports
 import argparse
-from fooof import FOOOFGroup
-#from fooof.analysis import get_band_peak_fg, get_band_peak_fm
-#from fooof.analysis.periodic import get_band_peak
-#from fooof.utils import interpolate_spectrum
 from specparam.utils.spectral import interpolate_spectra
 import json
 import logging
@@ -25,29 +32,24 @@ import numpy as np
 import os
 import pandas as pd
 from specparam import SpectralModel, SpectralGroupModel
-import sys
 import time
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# --- Main global variables ---
-pipver = 'stier'
-task = 'rest' #
-#tasks = ['rest', 'emptyroom']
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
+task = 'rest'
 phases = ['p2', 'p5']
 arms = [1, 2]
-megtypes = ['grad', 'mag']
-
-lfreq = 0.1 #Hz
-hfreq = 145.0 #Hz
-fsample = 300.0 #Hz
+lfreq = 0.1 # Hz, high-pass filter cutoff frequency. 
+hfreq = 145.0 # Hz, low-pass filter cutoff frequency. 
+fsample = 300.0 # Hz, resampling frequency.
 frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
+megtypes = ['mag', 'grad'] # list of MEG sensor types to process. Can be any combination of 'mag', 'grad', and 'eeg'.
 
 trans = True # Whether to use head transformation or not
 zmm = 44 # destination z coordinate head position in mm
@@ -61,7 +63,7 @@ overwrite = False # whether to overwrite existing files
 dointerpolation = True # whether to do interpolation of 23.4 Hz noise
 sinterp = '' if dointerpolation else '_nointerp'
 
-knee=True # whether to fit the aperiodic component with a knee (instead of a simple power law, or fixed mode). 
+knee=False # whether to fit the aperiodic component with a knee (instead of a simple power law, or fixed mode). 
 withknee = 'knee' if knee else ''
 aperiodic_mode = 'knee' if knee else 'fixed'
 
@@ -74,7 +76,7 @@ withknee = '' if component == 'total' else withknee
 package = 'specparam' #'fooof' # irasa
 
 fitting_param = 'finley' #'schmidt' #'oursv2' 
-jsonfile = os.path.join(dirs.homecamcancodedir, 'sens', f'aperiodic_fitting_params_{fitting_param}.json')
+jsonfile = os.path.join(f'aperiodic_fitting_params_{fitting_param}.json')
 
 if os.path.exists(jsonfile):
     with open(jsonfile) as json_file:
@@ -160,9 +162,8 @@ else:
 taskref = 'rest'
 phaseref = 'p5' 
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 
-save_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+save_deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', save_deriv_folder)
 if not os.path.exists(save_deriv_root): os.makedirs(save_deriv_root)
 
@@ -174,7 +175,7 @@ logfile = os.path.join(logdir, f'aperiodic_long_{component}_{package}_{proc}_{fr
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{taskref}_subjects.tsv')
+subjlistfile = os.path.join(maindir,f'meglong_{taskref}_subjects.tsv')
 
 # Main code
 def main():
@@ -208,14 +209,14 @@ def main():
 
             # ---- Define the output directory ----
             bids_project_folder = f'BIDS_long_{phase}_{taskref}_arm{armx}'
-            save_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            save_derivdir = os.path.join(maindir, bids_project_folder,
                     'derivatives', save_deriv_folder)
             save_megdir = os.path.join(save_derivdir, 'sub-'+id, 'meg')
             if not os.path.exists(save_megdir):
                 os.makedirs(save_megdir)
 
             # --- Define the psd directory and file ---
-            psd_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            psd_derivdir = os.path.join(maindir, bids_project_folder,
                     'derivatives', psd_deriv_folder)
             psd_megdir = os.path.join(psd_derivdir, 'sub-'+id, 'meg')
 
@@ -230,7 +231,7 @@ def main():
                 continue
 
             # --- Define the bad epochs file ---
-            goodepochs_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+            goodepochs_derivdir = os.path.join(maindir, bids_project_folder,
                     'derivatives', goodepochs_deriv_folder)
             goodepochs_megdir = os.path.join(goodepochs_derivdir, 'sub-'+id, 'meg')
 

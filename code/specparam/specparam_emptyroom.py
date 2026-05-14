@@ -45,7 +45,7 @@ bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_r
 
 # --- Pipeline-specific variables ---
 pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
-task = 'rest'
+task = 'noise'
 phases = ['p2', 'p5']
 arms = [1, 2]
 lfreq = 0.1 # Hz, high-pass filter cutoff frequency. 

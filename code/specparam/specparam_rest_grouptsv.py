@@ -1,51 +1,61 @@
-'''
-Filename: aperiodic_long_emptyroom_sp_createtsv.py
+"""
+Aggregate SpecParam Results and Classify Frequency Bands.
+
+This script aggregates the individual SpecParam outputs (.tsv files) from 
+'specparam_rest.py' for all subjects and phases into a single master dataset. 
+It performs the critical step of mapping individual model peaks to canonical 
+frequency bands (e.g., alpha, beta).
+
+Processing Steps:
+1. Iterates through all subjects, phases, and sensor types (grad/mag).
+2. Loads individual sensor-level parameter files.
+3. Classifies detected peaks into user-defined bands (Theta, Alpha, Beta, etc.) 
+   based on center frequency.
+4. Handles "multiple peaks" by selecting the one with the highest power 
+   within a given band.
+5. Merges aperiodic parameters (offset, exponent) with these band-specific 
+   periodic parameters.
+6. Exports a comprehensive 'group_stats' .tsv file ready for R/Python 
+   statistical modeling.
 
 Author: Maité Crespo García
-Description: Creates a tsv file with all the variables (aperiodic/periodic parameters) estimated from empty room recordings, FOR ALL  SUBJECTS and PHASES and ALL SENSOR TYPES (gradiometers, magnetometers). It saves it in a statistics directory. The input data are the tsv files created with the script sens/aperiodic_long_emptyroom_sp.py, which contain the aperiodic/periodic parameters for each subject, phase, and sensor type separately. The peak parameters in these input files are not yet classified into a classic frequency bands (theta, alpha, beta, etc.), so this script also classifies them into bands and extracts the relevant parameters per band (peak frequency, band power, etc.) to create the final tsv file for statistics.         
-
-Date: 09-Jan-2026 (created, modified from aperiodic_long_sp_createtsv.py)
-Version: 1.0
-'''
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
+Date: 29-Jan-2026 (last modified)
+"""
 
 # Imports
 import json
 import numpy as np
 import os
 import pandas as pd
-import sys
 import time
 import logging
 logger = logging.getLogger(__name__)
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# --- Main global variables ---
-pipver = 'stier'
-task = 'noise'  # 'emptyroom'
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
+task = 'rest'
 phases = ['p2', 'p5']
 arms = [1, 2]
 megtypes = ['grad', 'mag']
 
-overwrite = True
+overwrite = False
 
-dointerpolation = True # whether to do interpolation of 23.4 Hz noise
+dointerpolation = True #True # whether to do interpolation of 23.4 Hz noise
 sinterp = '' if dointerpolation else '_nointerp'
 
-# Indicate here the components and transforms that were used to create the aperiodic/periodic parameters files
-sinterp += '_totalminusaperiodicrest' # to indicate that the total power spectrum is used minus the aperiodic component
-
 # Processed data to use for extraction of aperiodic parameters
-proc = 'filt'
+icselection = 'ecg04eog08' # 'eog08' #  'allbutecg04' # 
+proc = 'filt' + icselection #'sss' #'clean'
 
 # whether to use epochs or raw data
-cropdata = 50 
+cropdata = 532 
 
 # Define the frequency range to fit
 ##### Frequency Range used for the Aperiodic Fit ###
@@ -58,15 +68,24 @@ hfreq = 145.0 #Hz
 fsample = 300.0 #Hz
 frange = f"{round(lfreq, 1)}-{int(hfreq)}Hz"
 
-trans = False # Whether to use head transformation or not
+trans = True # Whether to use head transformation or not
 zmm = 44 # destination z coordinate head position in mm
 
 # --- Package used for aperiodic fitting ---
 package = 'specparam' #'fooof' # irasa
 
+logdiff = False # whether to use the data from log10(rest) - log10(emptyroom)
+er_component = 'peak' #'total' #'aperiodic'  #
+postfix = '' #f'_peakminus{er_component}noise' if logdiff else ''
+toratio = '' #'toemptyroomratiofilt' if not logdiff else ''
+
+knee=False # whether to fit the aperiodic component with a knee (instead of a simple power law, or fixed mode). 
+withknee = 'knee' if knee else ''
+aperiodic_mode = 'knee' if knee else 'fixed'
+
 fitting_param = 'finley' #'oursv2' # 'oursv1' #
 
-jsonfile = os.path.join(dirs.homecamcancodedir, 'sens', f'aperiodic_fitting_params_{fitting_param}.json')
+jsonfile = os.path.join(f'aperiodic_fitting_params_{fitting_param}.json')
 if os.path.exists(jsonfile):
     with open(jsonfile) as json_file:
         json_dict = json.load(json_file)
@@ -90,15 +109,14 @@ else:
 taskref = 'rest'
 phaseref = 'p5'
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
-deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+deriv_root = os.path.join(maindir, bids_project_folder,
                           'derivatives', load_deriv_folder)
 
 logdir = os.path.join(deriv_root, 'logfiles')
 if not os.path.exists(logdir):
     os.makedirs(logdir)
 # Set up logging
-logfile = os.path.join(logdir, f'aperiodic_long_sp_{proc}_{fitting_param}{sinterp}_createtsv.log')
+logfile = os.path.join(logdir, f'aperiodic_long_sp_{proc}_{fitting_param}{sinterp}_createtsv{postfix}.log')
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 statsdir = os.path.join(deriv_root, 'stats')
@@ -106,10 +124,10 @@ if not os.path.exists(statsdir):
     os.makedirs(statsdir)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir, f'meglong_{taskref}_subjects.tsv')
+subjlistfile = os.path.join(maindir, f'meglong_{task}_subjects.tsv')
 
 # This file contains all the subjects in the longitudinal study, with the age at each phase
-agefilename = os.path.join(dirs.mysandboxdatadir,f'meglong_{taskref}_age.tsv')
+agefilename = os.path.join(maindir,f'meglong_{task}_age.tsv')
 
 bandsdiv = '2betas' # whether to divide beta into 2 or 3 sub-bands
 
@@ -140,6 +158,7 @@ if bandsdiv == '3betas':
                 }
     
 elif bandsdiv == '2betas':
+    
     varsoi = ['exponent', 
                 'theta_peak_freq', 'theta_band_power', 
                 'alpha_peak_freq', 'alpha_band_power',
@@ -151,8 +170,10 @@ elif bandsdiv == '2betas':
                 'gamma_peak_freq', 'gamma_band_power',
                 'r_squared',]
     
-    if sinterp == '_totalminusaperiodicrest':
-        varsoi = [var for var in varsoi if 'power' in var] # keep only power variables
+    #varsoi = ['offset']
+    
+    if logdiff:
+        varsoi = [var for var in varsoi if 'band_power' in var]
 
     bandsdict = {
                 'theta':(4,8),
@@ -164,6 +185,8 @@ elif bandsdiv == '2betas':
                 'high_beta':(20,30),
                 'gamma':(30,48),
                 }
+
+
 
 # --- Functions ---
 # Main code
@@ -187,7 +210,7 @@ def main():
             # containing all the subjects, phases, age, and channels
             createdf = True
             datafile = os.path.join(
-                statsdir, f'aperiodic_stier_{proc}_emptyroom_{fitting_param}_{megtype}{var}_{bandsdiv}{sinterp}.tsv'
+                statsdir, f'aperiodic_stier_{proc}_{fitting_param}{withknee}_{megtype}{var}_{bandsdiv}{sinterp}{toratio}{postfix}.tsv'
                 )
             
             # --- Create the datafile ---
@@ -204,15 +227,15 @@ def main():
                         armx = subjectsdf.loc[id,'arm']
 
                         # ---- Define the load directory ----
-                        bids_project_folder = f'BIDS_long_{phase}_{taskref}_arm{armx}'
-                        load_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                        bids_project_folder = f'BIDS_long_{phase}_{task}_arm{armx}'
+                        load_derivdir = os.path.join(maindir, bids_project_folder,
                                 'derivatives', load_deriv_folder)
                         save_megdir = os.path.join(load_derivdir, 'sub-'+id, 'meg')
                         if not os.path.exists(save_megdir):
                             os.makedirs(save_megdir)
 
                         # --- Define the load file for aperiodic parameters ---
-                        loadfilename = f'sub-{id}_task-{task}_proc-{proc}_desc-{psddesc}{megtype}{fitting_param}_{package}{sinterp}.tsv'
+                        loadfilename = f'sub-{id}_task-{task}_proc-{proc}_desc-{psddesc}{toratio}{megtype}{fitting_param}{withknee}_{package}{sinterp}{postfix}.tsv'
                         loadfile = os.path.join(save_megdir, loadfilename)
 
                         # Check if the files already exist
@@ -231,10 +254,17 @@ def main():
                                     'the file below does not exist:'
                                     f'\\n{loadfile}'
                                 )
-                                print(msg)
-                                logger.warning(msg)
-                                continue
-                                #raise FileNotFoundError(msg)
+                                #print(msg)
+                                #logger.error(msg)
+                                if logdiff or toratio=='toemptyroomratiofilt':
+                                    msg = (
+                                        f'\nNote that you are trying to create a tsv file with '
+                                        'log10(rest) - log10(emptyroom) data or rest/emptyroom ratio data, but this file is not '
+                                        'found. This may be because the dataset does not have emptyroom or the file was not created. ')
+                                    print(msg)
+                                    logger.warning(msg)
+                                else:
+                                    raise FileNotFoundError(msg)
                         
                         else:
                             print(f'Processing variable {var} for subject {id} phase {phase} megtype {megtype}')

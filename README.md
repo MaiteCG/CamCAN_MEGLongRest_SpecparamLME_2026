@@ -38,7 +38,7 @@ The **custom** Python files for other **preprocessing steps** are located in `co
   
   
 
-### Spectral analyses
+### Spectral power computation
 
 - `psd_rest.py`: Computes the **power spectrum** for **rest MEG** data that has been cleaned of ocular and cardiac ICA artifacts (via `custom_remove_icaartifacts.py`), and other **control MEG datasets** with different ICA removal treatments.
 
@@ -48,7 +48,17 @@ The **custom** Python files for other **preprocessing steps** are located in `co
   
   
 
-### Statistical analyses
+### Spectral power parametrisation
+
+- `specparam_rest.py`: Extracts spectral parameters by fitting the SpecParam (FOOOF) model to the Power Spectral Density (PSD) of MEG data to separate the 1/f **aperiodic** signal (offset and exponent) from **periodic peaks** (centre frequency, power, band width). It can be applied to the PSDs of **rest MEG** (main analysis) or **control MEG** datasets processed with different ICA treatments. It includes the **interpolation of the ~24 Hz noise**, which was **switched off for a control analysis**. It also includes the option of setting the **`aperiodic_mode`**, which was set in ***fixed*** mode for the main analyses, but was set to ***knee*** for a **control analysis**. The parameters are saved in a subject- and phase-specific .tsv file.
+
+- `specparam_emptyroom.py`: Extracts spectral parameters by fitting the SpecParam (FOOOF) model to **empty room** PSDs to characterize the background noise of the MEG system. It serves as a critical control to ensure that subject-level aperiodic results are not driven by sensor noise. The parameters are saved in a subject- and phase-specific .tsv file.
+
+- `specparam_ecg.py`: Extracts spectral parameters by fitting the SpecParam (FOOOF) model to the Power Spectral Density (PSD) of the ECG channel. By using the same frequency range and model constraints as the MEG analysis, it allows for a direct comparison between heart and brain aperiodic components. It includes the option of setting the **`aperiodic_mode`**, which was set in ***knee*** mode for the main ECG channel analysis, but was set to ***fixed*** for a **control analysis**.
+
+
+
+### Statistical analyses (LME models)
 
 
 

@@ -1,12 +1,35 @@
-# aperiodic_long_lme_1cov_maxT.py
-'''
-Filename: aperiodic_long_lme_1cov_maxT.py
-Author: Maité Crespo García
-Description: Runs the LME model analyses for each parameter of interest (BAND POWER periodic parameters or aperiodic exponent) INCLUDING ONE COVARIATE (band power or aperiodic exponent from empty room, or from ECG), and corrects for multiple comparisons across parameters using the maximum T statistics method with permutations. The variables of interest are read from a tsv file created in a previous step (sens/aperiodic_long_sp_createtsv.py) containing all the variables (aperiodic/periodic parameters) for all subjects, phases and sensor types (gradiometers, magnetometers). Similarly, the covariate variable is read from a tsv file created in sens/aperiodic_long_emptyroom_sp_createtsv_ecg.py.      
+"""
+Linear Mixed-Effects (LME) on Spectral Parameters from rest MEG data using Age factors 
+and 6 Control Covariates.
 
-Date: 20-01-2026 (created, modified from aperiodic_long_lme_allcov_maxT.py)
-Version: 1.0
-'''
+This script executes longitudinal linear mixed-effects regression analyses on 
+subject resting-state brain parameters while concurrently adjusting for six 
+methodological, anatomical, and behavioral confounds: biological sex, total 
+intracranial volume (TIV), head translation coordinates (X, Y, Z positions), 
+and average head motion displacement. Multiple comparisons across all MEG 
+channels and frequency bands are corrected non-parametrically using an empirical 
+maximum T-statistic distribution.
+
+Purpose:
+- To verify that the longitudinal impacts of baseline age (Age0), time elapsed 
+  between waves (deltaAge), and their interaction are robust to major physical 
+  and biological confounds.
+
+Processing Steps:
+1. Loads the primary subject resting-state brain parameters dataset.
+2. Imports and merges the comprehensive covariates table ('meglong_covariates.tsv').
+3. Standardizes and z-scores continuous nuisance covariates.
+4. Formulates the expanded multi-covariate LME regression matrix.
+5. Fits the full regression models across all channel-by-band brain metrics.
+6. Executes 10,000 shuffling permutations to build an extreme-value null 
+   distribution of the maximum absolute T-statistic.
+7. Derives family-wise error rate corrected p-values for primary age effects.
+
+Author: Maité Crespo García
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
+Date: 19-May-2026 (last modified)
+"""
+
 #
 #module load conda
 #module load rstudio
@@ -62,25 +85,11 @@ bandsdiv = '2betas' # '2betas' or '3betas'
 
 num_rand = int(1e4) # number of random permutations
 
-covtype = 'emptyroom' #'ecg' # 'ecg' 
-covproc = 'filt' if covtype == 'emptyroom' else ('sssECG' if covtype == 'ecg' else '') #'sss' #'clean' #
-suffix = 'totalminusaperiodicrest' if covtype == 'emptyroom' else ('totalrelpow2-40Hz' if covtype == 'ecg' else '')
-covname = f'_{covtype}{suffix}' if covtype == 'emptyroom' else (f'_{suffix}' if covtype == 'ecg' else '')
-covtypesuff = f'_{covtype}{suffix}'
-covproctask = (f'{covproc}_{covtype}' if covtype == 'emptyroom' else (covproc if covtype == 'ecg' else ''))
-
 # --- Directories and files ---
 if trans:
     deriv_folder = f'aperiodic_filt{frange}_fs{int(fsample)}Hz_trans_z{zmm}mm'
 else:
     deriv_folder = f'aperiodic_filt{frange}_fs{int(fsample)}Hz'
-
-covtrans = False # set to False for empty room and ECG covariates
-
-if covtrans:
-    cov_deriv_folder = f'aperiodic_filt{frange}_fs{int(fsample)}Hz_trans_z{zmm}mm'
-else:
-    cov_deriv_folder = f'aperiodic_filt{frange}_fs{int(fsample)}Hz'
 
 # directory where the psd files were stored
 taskref = 'rest'
@@ -90,12 +99,8 @@ bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
                           'derivatives', deriv_folder)
 
-cov_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
-                          'derivatives', cov_deriv_folder)
-
 loaddir = os.path.join(deriv_root, 'stats')
-covloaddir = os.path.join(cov_deriv_root, 'stats')
-savedir = os.path.join(loaddir, f'lme_1cov{covtypesuff}_maxT_{fitting_param}_{bandsdiv}_{icselection}_{num_rand}rand')
+savedir = os.path.join(loaddir, f'lme_allcov_maxT_{fitting_param}_{bandsdiv}_{icselection}_{num_rand}rand')
 if not os.path.exists(savedir): os.makedirs(savedir)
 
 # ---- Logging ----
@@ -104,7 +109,7 @@ if not os.path.exists(logdir):
     os.makedirs(logdir)
 
 # Set up logging
-logfile = os.path.join(logdir, f'aperiodic_long_{proc}_{fitting_param}_{bandsdiv}_lme_1cov{covtypesuff}_maxT.log')
+logfile = os.path.join(logdir, f'aperiodic_long_{proc}_{fitting_param}_{bandsdiv}_lme_allcov_maxT.log')
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # --- Other variables ---
@@ -144,8 +149,6 @@ elif bandsdiv == '2betas':
                 'low_beta_peak_freq', 'low_beta_band_power',
                 'high_beta_peak_freq', 'high_beta_band_power',
                 'gamma_peak_freq', 'gamma_band_power',]
-    
-    varsoi_cov = [cov for cov in varsoi if cov == 'exponent' or 'band_power' in cov] # Include only band power and exponent as covariates
 
     bandsdict = {
                 'theta':(4,8),
@@ -174,24 +177,7 @@ def main():
     datafile_allmeans = f'aperiodic_stier_{proc}_{fitting_param}_{bandsdiv}_allvars_means.tsv'
     datafile_allmeans = os.path.join(savedir, datafile_allmeans)
 
-    if not os.path.exists(datafile_allmeans):
-        datafile_allmeans_source = f'aperiodic_stier_{proc}_{fitting_param}_{bandsdiv}_allvars_means.tsv'
-        statsdir = os.path.join(deriv_root, 'stats')
-        sourcedir = os.path.join(statsdir, f'lme_maxT_{fitting_param}_{bandsdiv}_{num_rand}rand')
-        datafile_allmeans_source = os.path.join(sourcedir, datafile_allmeans_source)
-        if not os.path.exists(datafile_allmeans_source):
-            msg = f'File {datafile_allmeans_source} should exist already. Please, check or run aperiodic_long_lme_maxT.py without irand first to create it.'
-            raise ValueError(msg)
-        else:
-            # Copy the datafile from the previous analysis without covariates
-            print(f'Copying {datafile_allmeans_source} to {datafile_allmeans}...')
-            os.system(f'cp {datafile_allmeans_source} {datafile_allmeans}')
-
-    # Datafile with all variables means across channels (direct input for LME)
-    datafile_allmeans_cov = f'aperiodic_stier_{covproc}_{fitting_param}_{bandsdiv}_allvars_means{covname}.tsv'
-    datafile_allmeans_cov = os.path.join(savedir, datafile_allmeans_cov)
-
-    permfileroot = f'aperiodic_stier_{proc}_{fitting_param}_{bandsdiv}_lme_1cov_statperm'
+    permfileroot = f'aperiodic_stier_{proc}_{fitting_param}_{bandsdiv}_lme_allcov_statperm'
 
     # Check if a permutation was computed already, if irand is provided
     if irand is not None:
@@ -204,44 +190,28 @@ def main():
             return
         
     # ---- Create datafile with all variables means across channels, if it does not exist ----
-    if not os.path.exists(datafile_allmeans_cov): # or overwrite:
-            print(f'File {datafile_allmeans_cov} does not exist. It will be created.')
+    if not os.path.exists(datafile_allmeans): # or overwrite:
+            print(f'File {datafile_allmeans} does not exist. It will be created.')
             count = 0
-            for megtype in megtypes:   
-                   
-                for var in varsoi_cov:
+            for megtype in megtypes:            
+                for var in varsoi:
                     # Datafile for each megtype and variable of interest,
                     # containing all the subjects, phases, age, and channels
-                    if var == 'exponent':
-                        if covtype == 'emptyroom':
-                            datafile = os.path.join(                            
-                                covloaddir, f'aperiodic_stier_{covproctask}_{fitting_param}_{megtype}{var}_{bandsdiv}.tsv'
-                            )
-                        elif covtype == 'ecg':
-                            datafile = os.path.join(
-                                covloaddir, f'aperiodic_stier_{covproctask}_{fitting_param}_{var}_{bandsdiv}.tsv'
-                            )
-                    elif 'band_power' in var:
-                        datafile = os.path.join(
-                            covloaddir, f'aperiodic_stier_{covproctask}_{fitting_param}_{megtype}{var}_{bandsdiv}_{suffix}.tsv'
-                        )
-                    else: # peak frequency
-                        continue # peak frequency is not used as covariate    
-                        
+                    datafile = os.path.join(
+                        loaddir, f'aperiodic_stier_{proc}_{fitting_param}_{megtype}{var}_{bandsdiv}.tsv'
+                    )         
+                    
                     # --- Create the datafile ---
                     # with values of the variable of interest, per participant, phase, alongside the
                     # age at phase 2, age lag between p5 and p2, in the long format. To be used as an
                     # input for statistical analyses (LME)
                     if not os.path.exists(datafile):
-                        raise ValueError(f'File {datafile} does not exist. Stopping here.')
+                        raise ValueError('File does not exist. Stopping here.')
                     
                     df = pd.read_csv(datafile, sep='\t').drop(columns=['row', 'task'])
 
-                    if covtype == 'ecg' and var == 'exponent':
-                        channels = ['ECG']
-                    else:
-                        # Find channels data columns
-                        channels = [c for c in df.columns if c.startswith('MEG')]
+                    # Find channels data columns
+                    channels = [c for c in df.columns if c.startswith('MEG')]
                     # Create a new index with subject and phase combined
                     df['subject_phase'] = df[['subject', 'phase']].agg('_'.join, axis=1)
                     df = df.drop(columns=['subject', 'phase'])
@@ -262,26 +232,30 @@ def main():
                     del df
 
                     # After processing all variables and megtypes, save the final dataframe
-                    if count == len(varsoi_cov) * len(megtypes):
+                    if count == len(varsoi) * len(megtypes):
                         # Save the final dataframe                    
-                        df_all.to_csv(datafile_allmeans_cov, sep='\t')
-                        print(f'Final concatenated dataframe saved to {datafile_allmeans_cov}')
+                        df_all.to_csv(datafile_allmeans, sep='\t')
+                        print(f'Final concatenated dataframe saved to {datafile_allmeans}')
                         del df_all
     # ------------------------------------------------------------------------
     # In any case, load the data
     df, goodvars = get_gooddata(datafile_allmeans)
 
     # ---- Read covariates ----
-    df_cov, goodvars_cov = get_gooddata(datafile_allmeans_cov)
+    covariatesfile = os.path.join(dirs.mysandboxdatadir, 'meglong_covariates.tsv')
+    dfcov = pd.read_csv(covariatesfile, sep='\t')
 
-    covariates_list = goodvars_cov
+    covariates_list = ['sex', 'tiv', 'headposz', 'headposy', 'headposx', 'headmov']
 
     # Merge covariates into the main dataframe with all variables
-    df = df.merge(df_cov, how='left', on = ['subject', 'phase'], suffixes=('', '_cov'))
-    df = df.dropna(axis=0, how='any', subset=['Age0_cov', 'deltaAge_cov'])
-    df = df.drop(columns=['Age0_cov', 'deltaAge_cov'])
+    df = df.merge(dfcov.loc[:, ['subject', 'phase'] +covariates_list], how='left', on = ['subject', 'phase'])
+
+    # Reorder and select only the necessary columns
+    df = df.loc[:, ['subject', 'phase', 'Age0', 'deltaAge'] + covariates_list + goodvars]
     
-    # ---- PERMUTATION TESTING ----
+    # Change encoding of categorical variables (sex)
+    df['sex'] = df['sex'].map({"'M'": 'Male', "'F'": 'Female', "F'": 'Female', "M": 'Male', "F": 'Female'})
+
     if irand is not None:
         t0 = time.time()
         msg = f'Computing only permutation {irand} of {num_rand}...'
@@ -303,7 +277,7 @@ def main():
 
         # ---- PERMUTED STATISTICS ----
         # Compute the permuted statistics (LME) for each variable of interest (column)
-        tperm, pperm = permuted_lme_1cov_age(
+        tperm, pperm = permuted_lme_allcov_age(
             {'df': df, 'vars': goodvars, 'effects_of_interest': effects_of_interest, 'covariates_list': covariates_list}, 
             num_rand=num_rand, irand=irand, resampmat=resampmat
         )
@@ -318,26 +292,26 @@ def main():
 
     else: # If no irand is provided, compute the original statistics, load all the permutations and then compute the max-T corrected p-values
         # ---- Compute ORIGINAL STATISTICS ----
-        statorifile = os.path.join(savedir, f'aperiodic_stier_{proc}_{fitting_param}_lme_1cov_statori.npy')
-        if not os.path.exists(statorifile) or overwrite:
+        statorifile = os.path.join(savedir, f'aperiodic_stier_{proc}_{fitting_param}_lme_allcov_statori.npy')
+        if not os.path.exists(statorifile) or overwrite or True:
             # Just in case, load the data again
             df, goodvars = get_gooddata(datafile_allmeans)
 
-            # ---- Read covariates ----
-            df_cov, goodvars_cov = get_gooddata(datafile_allmeans_cov)
-
-            covariates_list = goodvars_cov
-
             # Merge covariates into the main dataframe with all variables
-            df = df.merge(df_cov, how='left', on = ['subject', 'phase'], suffixes=('', '_cov'))
-            df = df.dropna(axis=0, how='any', subset=['Age0_cov', 'deltaAge_cov'])
-            df = df.drop(columns=['Age0_cov', 'deltaAge_cov'])
+            df = df.merge(dfcov.loc[:, ['subject', 'phase'] +covariates_list], how='left', on = ['subject', 'phase'])
+
+            # Reorder and select only the necessary columns
+            df = df.loc[:, ['subject', 'phase', 'Age0', 'deltaAge'] + covariates_list + goodvars]
+            
+            # Change encoding of categorical variables (sex)
+            df['sex'] = df['sex'].map({"'M'": 'Male', "'F'": 'Female', "F'": 'Female', "M": 'Male', "F": 'Female'})
 
             # Compute the original statistics (LME) for each variable of interest (column)
-            tori, pori, cori = lme_1cov_age(df, goodvars, effects_of_interest, covariates_list, return_coefficients=True)
-            statori = {'tori': tori, 'pori': pori, 'cori': cori, 'vars': goodvars, 'effects_of_interest': effects_of_interest}
+            tori, pori, cori, modelori = lme_allcov_age(df, goodvars, effects_of_interest, covariates_list, return_coefficients=True, return_model=True)
+            statori = {'tori': tori, 'pori': pori, 'cori': cori, 'modelori': modelori, 'vars': goodvars, 'effects_of_interest': effects_of_interest}
             np.save(statorifile, statori)
             print(f'Original statistics saved to {statorifile}.')
+            #raise ValueError('Check the original statistics. Stopping here for now.')
             
         
         # ---- LOAD THE PERMUTED STATISTICS ----
@@ -402,12 +376,11 @@ def main():
                             pvals_corrected[i,j] = np.sum(max_abst_values_all[:,j] >= abst_tori[i,j]) / num_rand
                             
                     np.save(correctedpfile, pvals_corrected)
-                
+            
                 else:
                     pvals_corrected = np.load(correctedpfile)
                     print(pvals_corrected.shape)
-                    statori = np.load(statorifile, allow_pickle=True).item()
-                    tori = statori['tori']
+                    tori = np.load(statorifile, allow_pickle=True).item()['tori']
 
                 pori = np.load(statorifile, allow_pickle=True).item()['pori'][megtype_mask,:]        
                 vars = np.load(statorifile, allow_pickle=True).item()['vars']
@@ -466,7 +439,11 @@ def create_resampling_matrix(total_sampled, num_rand):
 
     return resampmat
 
-def lme_1cov_age(df, vars, effects_of_interest, covariates_list, return_coefficients=False):
+def lme_allcov_age(df, vars, effects_of_interest, covariates_list, return_coefficients=False, return_model=False):
+    ################################################################################
+    # Run LME with pymer4 for all the variables in vars list, including all
+    # the covariates in covariates_list, and for the effects of interest in
+    # effects_of_interest list.
     # df = dataframe with all the variables
     # vars = list of columns in the dataframe corresponding to all the variables
     #           that will be tested
@@ -475,19 +452,21 @@ def lme_1cov_age(df, vars, effects_of_interest, covariates_list, return_coeffici
     df['Age0'] = df['Age0'] - df['Age0'].mean(skipna=True) # Center the Age0 variable
     df['deltaAge'] = df['deltaAge'] - df['deltaAge'].mean(skipna=True) # Center the deltaAge variable
     for cov in covariates_list:
-        df[cov] = (df[cov] - df[cov].mean(skipna=True))/df[cov].std(ddof=0, skipna=True) # Center the covariate variable and z-score it
+        if cov == 'sex':
+            continue # categorical variable, do not center
+        else:
+            df[cov] = (df[cov] - df[cov].mean(skipna=True))/df[cov].std(ddof=0, skipna=True) # Center the covariate variable and z-score it
 
     tout = np.zeros((len(vars), len(effects_of_interest)))
     pout = np.zeros((len(vars), len(effects_of_interest)))
+    modelout = []
     if return_coefficients:
         cout = np.zeros((len(vars), len(effects_of_interest)))
-    for i, f in enumerate(vars):
-        if ('exponent' in f) or ('band_power' in f):              
-            model = Lmer(f"{f} ~ Age0 + deltaAge + Age0*deltaAge + {f}_cov + (1|subject)", data=df)
-        else:
-            # peak frequency
-            model = Lmer(f"{f} ~ Age0 + deltaAge + Age0*deltaAge + (1|subject)", data=df)
+    for i, f in enumerate(vars):                
+        model = Lmer(f"{f} ~ Age0 + deltaAge + Age0*deltaAge + sex + tiv + headposz + headposy + headposx + headmov + (1|subject)", data=df)
         model.fit(summary=False, verbose=False)
+
+        modelout.append(model)
 
         # model.coefs gives a dataframe with effects (Age0, deltaAge, etc.) in index 
         # and statistical parameters (T-stat, P-val, etc) in columns
@@ -502,12 +481,19 @@ def lme_1cov_age(df, vars, effects_of_interest, covariates_list, return_coeffici
 
         #print(f'{(i+1)} / {len(vars)}')   
 
-    if return_coefficients:
+    if return_model and return_coefficients:
+        return tout, pout, cout, modelout
+    
+    elif return_model and not return_coefficients:
+        return tout, pout, modelout
+    
+    elif return_coefficients and not return_model:
         return tout, pout, cout
+    
     else:
         return tout, pout
 
-def permuted_lme_1cov_age(datadict, num_rand=int(1e4), irand=None, resampmat=None):
+def permuted_lme_allcov_age(datadict, num_rand=int(1e4), irand=None, resampmat=None):
     # Return vector of cluster size thresholds for samp_size x num_tests matrix y
     # given height threshold(s) (thrs)
 
@@ -540,7 +526,7 @@ def permuted_lme_1cov_age(datadict, num_rand=int(1e4), irand=None, resampmat=Non
         
         # Compute the LME for all the effects of interest at once, and get the
         # t-values and p-values for each variable (rows) and effect (columns)
-        tperm, pperm = lme_1cov_age(dfperm, datadict['vars'], datadict['effects_of_interest'], datadict['covariates_list']) 
+        tperm, pperm = lme_allcov_age(dfperm, datadict['vars'], datadict['effects_of_interest'], datadict['covariates_list']) 
 
         if len(nrand_iter) == 1:
             # If only one permutation is requested, return the t and p values

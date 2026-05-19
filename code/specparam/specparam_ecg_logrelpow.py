@@ -1,25 +1,36 @@
-'''
-aperiodic_long_ecg_components_logrelpow_totsv.py
+"""
+Relative Cardiac Band Power Quantification mapped to Neural Peaks.
 
-Description: This script computes the Relative Band Power of ECG channel activity (acquired together with rest recordings). The ECG mean band power is first computed within the band peaks detected by FOOOF (specparam) alogorithm in subjects rest data (longitudinal Cam-CAN MEG), then divided by the total ECG power within the FOOOF fitting frequency range (2-40 Hz). Then, applies log10 transform. Finally, it creates a tsv file with the peak frequencies (copied from rest) and band power (computed here) for each subject, phase and megtype, including all the channels*. This file is saved in the subjetc's meg folder within the derivatives directory corresponding to aperiodic analysis of ECG recordings.
+This script extracts the mean linear power of the ECG channel within the precise 
+frequency boundaries (center frequency ± 2*bandwidth) where periodic peaks 
+were detected in the subject's MEG data. It normalizes this cardiac band power 
+by the total ECG power within the fitting range (2-40 Hz) and applies a 
+log10 transformation.
 
-* altough the power is computed from only one ECG channel, the bands were defined based on the peaks detected in each channel (grad/mag) in rest data.
+Purpose:
+- To create a 'Relative Cardiac Power' metric custom-tailored to each sensor's 
+  individual neural peak profile.
+- This serves as a high-precision control for statistical modeling (e.g., LME), 
+  confirming that age-related shifts or longitudinal changes in neural peak 
+  power are completely independent of physiological cardiac dynamics or 
+  incomplete ICA cleanup.
 
-Input files: 
-        - 1) hdf5 files with the total ECG PSD obtained with MNE-Python stored in psd_ecg_long_2s.py
-
-        (- 2) numpy files with the aperiodic component of the REST PSD obtained with specparam (or FOOOF) stored in aperiodic_long_components.py) not really, optional if needed.
-
-        - 3) tsv files with the peak frequencies and band witdths detected with specparam (or FOOOF) in subjects rest data, stored in aperiodic_long_sp.py
-        
-        
-Purpose: The info contained in the output tsv files will be used to re-run the LME with permutation analysis on rest data, but using these ECG bands power as covariates. This is part of a control analysis to check the influence of cardiac activity on the age-related effects observed in rest power.
+Processing Steps:
+1. Loads the peak configurations (center frequencies and bandwidths) identified 
+   in the neural data ('specparam_rest.py').
+2. Loads the full ECG Power Spectral Density ('psd_ecg.py').
+3. Interpolates line noise frequencies (50 Hz and harmonics) in the ECG data.
+4. For every peak detected in the neural data:
+   - Sets boundaries around the peak (f_low = cf - 2 * bw; f_high = cf + 2 * bw).
+   - Computes the mean linear power of the ECG channel within this band.
+   - Computes the total linear power of the ECG channel across the 2-40 Hz range.
+   - Calculates the log relative power: log10(Band Power / Total Power).
+5. Saves a sensor-by-peak master array to a .tsv file inside the derivatives folder.
 
 Author: Maité Crespo García
-Affiliation: MRC Cognition and Brain Sciences Unit, University of Cambridge
-Date: 21-Jan-2026 (created, modified from aperiodic_long_ecg_components_logdiffaper_totsv.py)
-
-'''
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
+Date: 19-May-2026 (last modified)
+"""
 
 # Imports
 import argparse

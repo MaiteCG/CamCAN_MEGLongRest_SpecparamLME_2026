@@ -1,11 +1,33 @@
-# aperiodic_long_emptyroom_lme_maxT.py
-'''
-Filename: aperiodic_long_emptyroom_lme_maxT.py
+"""
+Linear Mixed-Effects (LME) Empty Room Modeling with Permutation-Based Max-T.
+
+This script executes parallel longitudinal statistical analyses on parameters 
+extracted entirely from empty room noise recordings. By implementing the identical 
+LME regression and non-parametric family-wise error rate correction used for 
+subject data, it provides a direct instrumental benchmark.
+
+Purpose:
+- To evaluate if baseline age (Age0), longitudinal time changes (deltaAge), 
+  or their interaction (Age0:deltaAge) produce spurious "significant" effects 
+  within the empty room data.
+- Serving as a negative control: proving that any developmental or aging findings 
+  reported in your primary study are strictly biological rather than artifacts 
+  of hardware fluctuations, environmental drift, or scanner-upgrade imbalances.
+
+Processing Steps:
+1. Loads the group-level empty room master table ('group_stats_noise.tsv').
+2. Configures the exact frequency sub-bands (e.g., separating or group-defining 
+   the beta bands) chosen for the matching resting-state models.
+3. Fits an LME regression model for every channel-by-band noise variable.
+4. Shuffles independent age variables across 10,000 iterations to build an 
+   empirical extreme-value null distribution of the maximum absolute T-statistic.
+5. Quantifies corrected p-values to isolate any hidden environmental anomalies.
+
 Author: Maité Crespo García
-Description: Runs the LME model analyses for all the variables of interest (aperiodic/periodic parameters) extracted from empty room recordings, and corrects for multiple comparisons using the maximum T statistics method with permutations. The variables of interest are read from a tsv file created in a previous step (sens/aperiodic_long_sp_createtsv.py) containing all the variables (aperiodic/periodic parameters) for all subjects, phases and sensor types (gradiometers, magnetometers).       
-Date: 09-Jan-2026 (created, modified from aperiodic_long_lme_maxT.py)
-Version: 1.0
-'''
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
+Date: 19-May-2026 (last update)
+"""
+
 #
 #module load conda
 #module load rstudio

@@ -1,12 +1,24 @@
-'''
-Filename: aperiodic_ecg_relpow_long_sp_createtsv.py
+"""
+Aggregate Relative ECG Band Power Across Subjects and Phases.
+
+This script aggregates individual sensor-level relative ECG band power outputs 
+from 'specparam_ecg_logrelpow.py' into a single group-level master table. 
+It maps the relative cardiac power values into canonical frequency bands 
+(Theta, Alpha, Beta, Gamma) based on the center frequencies of the 
+corresponding neural peaks.
+
+Processing Steps:
+1. Iterates through all subjects, phases, and sensor types (grad/mag).
+2. Loads individual relative ECG band power files.
+3. Classifies the neural peak boundaries into classical frequency bands.
+4. Identifies the peak with the maximum relative cardiac power if multiple 
+   peaks overlap within a single band definition.
+5. Concatenates all subject-specific tables into a final group master table.
 
 Author: Maité Crespo García
-Description: Creates a tsv file with all the variables (aperiodic/periodic parameters) estimated from ECG channel associated with rest recordings, FOR ALL  SUBJECTS and PHASES and ALL SENSOR TYPES (gradiometers, magnetometers). It saves it in a statistics directory. The input data are the tsv files created with the script sens/aperiodic_long_ecg_components_logrelpow_totsv.py, which contain the aperiodic/periodic parameters for each subject, phase, and sensor type separately. The peak parameters in these input files are not yet classified into a classic frequency bands (theta, alpha, beta, etc.), so this script also classifies them into bands and extracts the relevant parameters per band (peak frequency, band power, etc.) to create the final tsv file for statistics.         
-
+Affiliation: MRC Cognition and Brain Sciences Unit, Cambridge, UK
 Date: 21-Jan-2026 (created, modified from aperiodic_long_emptyroom_sp_createtsv.py)
-Version: 1.0
-'''
+"""
 
 # Imports
 import json

@@ -23,7 +23,6 @@ The configuration files for the **MNE-BIDS automatic pipeline** are located in `
 The preprocessing of the **ECG channel** is performed within the script that computes the spectral power (see below). 
 
 
-
 The **custom** Python files for other **preprocessing steps** are located in `code/prep`:
 
 - `custom_bad_epochs.py`: Detects bad epochs in **rest MEG** data using muscle artifact z-scoring. Saves the indexes of the good epochs to be used later in the pipeline.

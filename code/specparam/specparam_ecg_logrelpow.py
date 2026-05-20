@@ -43,24 +43,21 @@ import mne
 import numpy as np
 import os
 import pandas as pd
-import sys
 import time
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# --- Main global variables ---
-pipver = 'stier'
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
 task = 'rest'
+megtypes = ['mag', 'grad'] # list of MEG sensor types to process. Can be any combination of 'mag', 'grad', and 'eeg'.
 #tasks = ['rest', 'emptyroom']
 phases = ['p2', 'p5']
 arms = [1, 2]
-megtypes = ['grad', 'mag']
 
 lfreq = 0.1 #Hz
 hfreq = 145.0 #Hz
@@ -173,9 +170,8 @@ else:
 taskref = 'rest'
 phaseref = 'p5' 
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
 
-save_deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+save_deriv_root = os.path.join(maindir, bids_project_folder,
                         'derivatives', ecg_deriv_folder)
 
 logdir = os.path.join(save_deriv_root, 'logfiles')
@@ -186,7 +182,7 @@ logfile = os.path.join(logdir, f'aperiodic_long_ecg_comp_logrelpow_totsv_{ecg_co
 logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.DEBUG)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir,f'meglong_{taskref}_subjects.tsv')
+subjlistfile = os.path.join(maindir,f'meglong_{taskref}_subjects.tsv')
 
 # Main code
 def main():
@@ -223,7 +219,7 @@ def main():
 
                 # ---- Define the input/output directory for rest peak power tsv files ----
                 bids_project_folder = f'BIDS_long_{phase}_{taskref}_arm{armx}'
-                ecg_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                ecg_derivdir = os.path.join(maindir, bids_project_folder,
                         'derivatives', ecg_deriv_folder)
                 ecg_megdir = os.path.join(ecg_derivdir, 'sub-'+id, 'meg')
 
@@ -240,7 +236,7 @@ def main():
 
                 if ecg_component == 'total':
                     # ---- Define the input directory for empty room psd files files ----
-                    ecg_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                    ecg_derivdir = os.path.join(maindir, bids_project_folder,
                             'derivatives', ecg_psd_deriv_folder)
                     ecg_megdir = os.path.join(ecg_derivdir, 'sub-'+id, 'meg')
 
@@ -251,7 +247,7 @@ def main():
                 elif ecg_component == 'peak':
                     raise ValueError('This should not go this way now.')
                     # ---- Define the input directory for empty room numpy files ----
-                    ecg_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                    ecg_derivdir = os.path.join(maindir, bids_project_folder,
                             'derivatives', ecg_deriv_folder)
                     ecg_megdir = os.path.join(ecg_derivdir, 'sub-'+id, 'meg')
 
@@ -260,7 +256,7 @@ def main():
                     emptyroomfile = os.path.join(ecg_megdir, emptyroomfilename)
                 
                 
-                rest_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                rest_derivdir = os.path.join(maindir, bids_project_folder,
                         'derivatives', rest_deriv_folder)
                 rest_megdir = os.path.join(rest_derivdir, 'sub-'+id, 'meg')
 
@@ -311,7 +307,7 @@ def main():
                 '''
 
                 # --- Define the bad epochs file ---
-                goodepochs_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                goodepochs_derivdir = os.path.join(maindir, bids_project_folder,
                         'derivatives', goodepochs_deriv_folder)
                 goodepochs_megdir = os.path.join(goodepochs_derivdir, 'sub-'+id, 'meg')
 

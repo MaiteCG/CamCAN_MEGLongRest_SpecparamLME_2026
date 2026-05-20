@@ -25,25 +25,22 @@ import json
 import numpy as np
 import os
 import pandas as pd
-import sys
 import time
 import logging
 logger = logging.getLogger(__name__)
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# --- Main global variables ---
-pipver = 'stier'
-task = 'rest' 
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
+task = 'rest'
+megtypes = ['mag', 'grad'] # list of MEG sensor types to process. Can be any combination of 'mag', 'grad', and 'eeg'.
 phases = ['p2', 'p5']
 arms = [1, 2]
-megtypes = ['grad', 'mag']
 
 overwrite = False
 
@@ -105,8 +102,7 @@ else:
 taskref = 'rest'
 phaseref = 'p5'
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
-deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+deriv_root = os.path.join(maindir, bids_project_folder,
                           'derivatives', load_deriv_folder)
 
 logdir = os.path.join(deriv_root, 'logfiles')
@@ -121,10 +117,10 @@ if not os.path.exists(statsdir):
     os.makedirs(statsdir)
 
 # ---- File with subjects and arms ----
-subjlistfile = os.path.join(dirs.mysandboxdatadir, f'meglong_{taskref}_subjects.tsv')
+subjlistfile = os.path.join(maindir, f'meglong_{taskref}_subjects.tsv')
 
 # This file contains all the subjects in the longitudinal study, with the age at each phase
-agefilename = os.path.join(dirs.mysandboxdatadir,f'meglong_{taskref}_age.tsv')
+agefilename = os.path.join(maindir,f'meglong_{taskref}_age.tsv')
 
 bandsdiv = '2betas' # whether to divide beta into 2 or 3 sub-bands
 
@@ -220,7 +216,7 @@ def main():
 
                         # ---- Define the load directory ----
                         bids_project_folder = f'BIDS_long_{phase}_{taskref}_arm{armx}'
-                        load_derivdir = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+                        load_derivdir = os.path.join(maindir, bids_project_folder,
                                 'derivatives', load_deriv_folder)
                         save_megdir = os.path.join(load_derivdir, 'sub-'+id, 'meg')
                         if not os.path.exists(save_megdir):

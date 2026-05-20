@@ -47,21 +47,18 @@ pd.options.mode.chained_assignment = None  # default='warn'
 from pymer4.models import Lmer
 import warnings # pymer4 needs to be updated to python3.1, so suppress warning to do with dataframe
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*DataFrame.applymap.*")
-import sys
 import time
 
-if os.name == 'nt':
-    cfgdir = r"U:\Documents\CamCAN\code\maipy"
-else:
-    cfgdir = "/imaging/camcan/sandbox/mc06/code/maipy"
+# =============================================================================
+# --- Project-specific Settings ---
+# =============================================================================
+maindir = '' # path where the BIDS project folder is stored, e.g. '/home/CamCAN/data/'
+bids_project_folder = '' # Name of the BIDS project folder, e.g. 'BIDS_long_P2_rest_arm1'
 
-sys.path.insert(1, cfgdir)
-import mcgdirs as dirs
-
-# --- Main global variables ---
-pipver = 'stier'
-task = 'rest' # 'emptyroom'
-megtypes = ['mag','grad']
+# --- Pipeline-specific variables ---
+pipver = '' # any string to identify the version of the pipeline, e.g. 'v01'.
+task = 'rest'
+megtypes = ['mag', 'grad'] # list of MEG sensor types to process. Can be any combination of 'mag', 'grad', and 'eeg'.
 
 overwrite = False
 
@@ -95,8 +92,7 @@ else:
 taskref = 'rest'
 phaseref = 'p5'
 armref = 1
-bids_project_folder = f'BIDS_long_{phaseref}_{taskref}_arm{armref}'
-deriv_root = os.path.join(dirs.mysandboxdatadir, bids_project_folder,
+deriv_root = os.path.join(maindir, bids_project_folder,
                           'derivatives', deriv_folder)
 
 loaddir = os.path.join(deriv_root, 'stats')
@@ -242,7 +238,7 @@ def main():
     df, goodvars = get_gooddata(datafile_allmeans)
 
     # ---- Read covariates ----
-    covariatesfile = os.path.join(dirs.mysandboxdatadir, 'meglong_covariates.tsv')
+    covariatesfile = os.path.join(maindir, 'meglong_covariates.tsv')
     dfcov = pd.read_csv(covariatesfile, sep='\t')
 
     covariates_list = ['sex', 'tiv', 'headposz', 'headposy', 'headposx', 'headmov']

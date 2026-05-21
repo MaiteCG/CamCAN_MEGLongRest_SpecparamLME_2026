@@ -22,7 +22,6 @@ The configuration files for the **MNE-BIDS automatic pipeline** are located in `
 
 The preprocessing of the **ECG channel** is performed within the script that computes the spectral power (see below). 
 
-
 The **custom** Python files for other **preprocessing steps** are located in `code/prep`:
 
 - `custom_bad_epochs.py`: Detects bad epochs in **rest MEG** data using muscle artifact z-scoring. Saves the indexes of the good epochs to be used later in the pipeline.
@@ -100,6 +99,16 @@ Parameters from **ECG channel** or **empty room** data, we extracted the exponen
 
 ### Figures and tables
 
+The scripts for figures and tables are located in `results/`.
+
+`figure01_script.ipynb`, `figure02_script.ipynb`, `figure03_script.ipynb` and `figure04_script.ipynb` generate the main Figures 1 to 4 of the paper.
+
+`figures02_03_source_data.ipynb` generates the source data that is read by the scripts used to generate Figures 2 and 3. The source data are 2 TSV files containing the relative total and aperiodic-corrected spectra for all participants and phases.
+
+`figure04_source_data.ipynb` generates the source data read by the script used to generate Figure 4. The source data are 12 TSV files, starting with `figure04_` in the name. Six of these files end with `_barplot.tsv`, found end with `_topo.tsv` and they contain the main information for the barplots and topographies, respectively. One of the files ends with `_stats.tsv` and this contain the statistics of the LME analyses to be used for the annotations of the bar plots. The other file ends with `_indiv_values.tsv` and these contain the values for all the parameters represented in the Figure, for each participant and phase. This information is used to plot individual lines on top of the bar plots.
+
+The source data for the figures are located in `data/`.
+
 
 
 ## Dependencies:
@@ -113,8 +122,8 @@ Parameters from **ECG channel** or **empty room** data, we extracted the exponen
 - specparam 2.0
 
 - pymer4
-
-
+  
+  
 
 ## Data Availability
 

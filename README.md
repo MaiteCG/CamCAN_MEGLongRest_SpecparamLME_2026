@@ -129,7 +129,7 @@ The main programs needed for the analyses are:
   
   
 
-The full list of libraries and versions can be found in `environment.yml`. This file was created with `conda env export > environment.yml` from the working environment. To create a new environment from the provided file, you can use the command `conda create --file environment.yml`. Further information on how to create the environment and install the packages can be found elsewhere on the web. 
+The full list of libraries and versions can be found in `environment.yml`. This file was created with `conda env export --no-builds > environment.yml` from the working environment. To create a new environment from the provided file, you can use the command `conda create --file environment.yml`. Further information on how to create the environment and install the packages can be found elsewhere on the web. 
 
 
 

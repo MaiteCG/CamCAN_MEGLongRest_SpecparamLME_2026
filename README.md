@@ -129,6 +129,32 @@ The main packages used for the analyses are listed on `general_requirements.txt`
 
 The full list of libraries and versions can be found in `conda_requirements.txt` or `pip_requirements.txt`. The former was created with `conda list --export > conda_requirements.txt` and the latter with `pip list --format=freeze > pip_requirements.txt`. Instructions to install the packages from the conda file, are inside the .txt. For pip, use `pip install r pip_requirements.txt` instead, after creating your new environment and activating it. Further information on how to create the enviorment and install the packages can be found elsewhere on the web. 
 
+
+
+**Installation of pymer4**
+
+It may not work via pip (please, see [Installation &#8212; Pymer4](https://eshinjolly.com/pymer4/pages/installation.html)). I installed it via conda:
+
+`module load conda`
+
+`conda create --name pymer4_env -c ejolly -c conda-forge -cdefaults pymer4`
+
+
+
+**Before using the LME scripts**
+
+Calling lmer function from pymer4 requires a previous installation of R/RStudio and/or installing additional R packages (please, see installation link above). In my case, I had to run the code below before using the scripts with pymer4:
+
+`module load conda`
+
+`module load rstudio`
+
+`conda activate pymer4_env`
+
+`rstudio --no-sandbox`
+
+
+
 ## Data Availability
 
 The raw MEG data from Phase 2 are already available on the CamCAN repository ([Cam-CAN Data Repository](https://cam-can.mrc-cbu.cam.ac.uk/dataset)).

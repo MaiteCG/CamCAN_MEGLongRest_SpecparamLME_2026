@@ -113,9 +113,13 @@ The source data for the figures are located in `data/`.
 
 ## Dependencies:
 
+The main programs needed for the analyses are:
+
 - Python
 
-- MNE-Python, MNE-BIDS pipeline
+- MNE-Python, MNE-BIDS, MNE-BIDS pipeline
+
+- python-picard
 
 - pandas, numpy, matplotlib
 
@@ -125,9 +129,7 @@ The source data for the figures are located in `data/`.
   
   
 
-The main packages used for the analyses are listed on `general_requirements.txt` file.
-
-The full list of libraries and versions can be found in `conda_requirements.txt` or `pip_requirements.txt`. The former was created with `conda list --export > conda_requirements.txt` and the latter with `pip list --format=freeze > pip_requirements.txt`. Instructions to install the packages from the conda file, are inside the .txt. For pip, use `pip install -r pip_requirements.txt` instead, after creating your new environment and activating it. Further information on how to create the enviorment and install the packages can be found elsewhere on the web. 
+The full list of libraries and versions can be found in `environment.yml`. This file was created with `conda env export > environment.yml` from the working environment. To create a new environment from the provided file, you can use the command `conda create --file environment.yml`. Further information on how to create the environment and install the packages can be found elsewhere on the web. 
 
 
 
@@ -135,9 +137,10 @@ The full list of libraries and versions can be found in `conda_requirements.txt`
 
 It may not work via pip (please, see [Installation &#8212; Pymer4](https://eshinjolly.com/pymer4/pages/installation.html)). I installed it via conda:
 
-`module load conda`
-
-`conda create --name pymer4_env -c ejolly -c conda-forge -cdefaults pymer4`
+```
+module load conda 
+conda create --name pymer4_env -c ejolly -c conda-forge -cdefaults pymer4
+```
 
 
 
@@ -145,13 +148,12 @@ It may not work via pip (please, see [Installation &#8212; Pymer4](https://eshin
 
 Calling lmer function from pymer4 requires a previous installation of R/RStudio and/or installing additional R packages (please, see installation link above). In my case, I had to run the code below before using the scripts with pymer4:
 
-`module load conda`
-
-`module load rstudio`
-
-`conda activate pymer4_env`
-
-`rstudio --no-sandbox`
+```
+module load conda
+module load rstudio
+conda activate pymer4_env
+rstudio --no-sandbox
+```
 
 
 

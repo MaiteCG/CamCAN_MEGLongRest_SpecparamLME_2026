@@ -127,7 +127,7 @@ The source data for the figures are located in `data/`.
 
 The main packages used for the analyses are listed on `general_requirements.txt` file.
 
-The full list of libraries and versions can be found in `conda_requirements.txt` or `pip_requirements.txt`. The former was created with `conda list --export > conda_requirements.txt` and the latter with `pip list --format=freeze > pip_requirements.txt`. Instructions to install the packages from the conda file, are inside the .txt. For pip, use `pip install r pip_requirements.txt` instead, after creating your new environment and activating it. Further information on how to create the enviorment and install the packages can be found elsewhere on the web. 
+The full list of libraries and versions can be found in `conda_requirements.txt` or `pip_requirements.txt`. The former was created with `conda list --export > conda_requirements.txt` and the latter with `pip list --format=freeze > pip_requirements.txt`. Instructions to install the packages from the conda file, are inside the .txt. For pip, use `pip install -r pip_requirements.txt` instead, after creating your new environment and activating it. Further information on how to create the enviorment and install the packages can be found elsewhere on the web. 
 
 
 

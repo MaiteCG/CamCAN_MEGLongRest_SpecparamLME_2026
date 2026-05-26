@@ -29,12 +29,11 @@ from specparam.utils.spectral import interpolate_spectra
 import json
 import logging
 logger = logging.getLogger(__name__)
-#import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import os
 import pandas as pd
-from specparam import SpectralGroupModel #SpectralModel, 
+from specparam import SpectralGroupModel
 import time
 
 # =============================================================================
@@ -125,19 +124,6 @@ else:
 psddesc = f'dur{cropdata}sepo{epoch_duration}s{powmethod}'
 epochdur = epoch_duration  # seconds
 powabbr = powmethod  #'WL' or 'MT' #
-#sfres = '' if fres == 0.1 else f'fres{fres}Hz'
-# fres seems redundant with epoch_duration, so not included in the filename
-
-
-# packages in Schmidt et al., 2024:
-# Power spectra were parameterized across frequency ranges of 0.5–145 Hz. 
-# FOOOF models were fit using the following settings: 
-# peak width limits: [1 – 6]; max number of peaks: 2; 
-# minimum peak height: 0.0; peak threshold: 2.0; aperiodic mode: ‘fixed’.
-
-# Donoghue et al., 2020
-# peak_width_limits=[1,6], max_n_peaks=6, min_peak_height=0.05, 
-# peak_threshold=1.5, aperiodic_mode=‘fixed’
 
 # --- Directories and files ---
 
@@ -236,10 +222,7 @@ def main():
                     'derivatives', goodepochs_deriv_folder)
             goodepochs_megdir = os.path.join(goodepochs_derivdir, 'sub-'+id, 'meg')
 
-            if False:
-                badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-epo{cropdata}_badepochs.npy'
-            else:
-                badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-dur{cropdata}sepo{epoch_duration}s_badepochs.npy'
+            badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-dur{cropdata}sepo{epoch_duration}s_badepochs.npy'
             badepochsfile = os.path.join(goodepochs_megdir, badepochsfilename)
 
             # --- Check if the bad epochs file exists ---
@@ -249,9 +232,6 @@ def main():
                 logger.info(msg)
                 continue
 
-            #txtfile = os.path.join(save_megdir, 'done.txt')
-            
-            
             # --- Define the output file for aperiodic parameters ---
             savefilename = f'sub-{id}_task-{task}_proc-{proc}{channelselection}likemeg_desc-dur{cropdata}sepo{epochdur}s{powabbr}{fitting_param}{aperiodic_mode if aperiodic_mode=='fixed' else ''}_{package}{sinterp}.tsv'
             savefile = os.path.join(save_megdir, savefilename)
@@ -319,11 +299,6 @@ def main():
             msg = f'Subject {id} in phase {phase}: aperiodic parameters computed in {deltat:.2f} seconds.'
             print(msg)
             logger.info(msg)
-    
-            '''
-            with open(txtfile, "w") as f:
-                f.write("")
-            '''
 
 if __name__ == "__main__":
     main()

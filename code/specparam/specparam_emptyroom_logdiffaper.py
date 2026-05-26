@@ -239,18 +239,6 @@ def main():
                     emptyroomfilename = f'sub-{id}_task-{er_task}_proc-{er_proc}_desc-{er_psddesc}_psd.hdf5'
                     emptyroomfile = os.path.join(er_megdir, emptyroomfilename)
 
-                elif er_component == 'peak':
-                    raise ValueError('This should not go this way now.')
-                    # ---- Define the input directory for empty room numpy files ----
-                    er_derivdir = os.path.join(maindir, bids_project_folder,
-                            'derivatives', er_deriv_folder)
-                    er_megdir = os.path.join(er_derivdir, 'sub-'+id, 'meg')
-
-                    # --- Define the input file for empty room periodic component data ---
-                    emptyroomfilename = f'sub-{id}_task-{er_task}_proc-{er_proc}_desc-{er_psddesc}{megtype}{fitting_param}_{package}_{er_component}.npy'
-                    emptyroomfile = os.path.join(er_megdir, emptyroomfilename)
-                
-                
                 rest_derivdir = os.path.join(maindir, bids_project_folder,
                         'derivatives', rest_deriv_folder)
                 rest_megdir = os.path.join(rest_derivdir, 'sub-'+id, 'meg')

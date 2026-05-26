@@ -26,7 +26,6 @@ from specparam.utils.spectral import interpolate_spectra
 import json
 import logging
 logger = logging.getLogger(__name__)
-import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import os
@@ -126,19 +125,6 @@ else:
     json.dump(fitting_param_dict, open(f'aperiodic_fitting_params_{fitting_param}.json', 'w'), indent=4)
 
 psddesc = f'dur{cropdata}sepo{epoch_duration}s{powmethod}'
-#sfres = '' if fres == 0.1 else f'fres{fres}Hz'
-# fres seems redundant with epoch_duration, so not included in the filename
-
-
-# packages in Schmidt et al., 2024:
-# Power spectra were parameterized across frequency ranges of 0.5–145 Hz. 
-# FOOOF models were fit using the following settings: 
-# peak width limits: [1 – 6]; max number of peaks: 2; 
-# minimum peak height: 0.0; peak threshold: 2.0; aperiodic mode: ‘fixed’.
-
-# Donoghue et al., 2020
-# peak_width_limits=[1,6], max_n_peaks=6, min_peak_height=0.05, 
-# peak_threshold=1.5, aperiodic_mode=‘fixed’
 
 # --- Directories and files ---
 
@@ -235,10 +221,7 @@ def main():
                     'derivatives', goodepochs_deriv_folder)
             goodepochs_megdir = os.path.join(goodepochs_derivdir, 'sub-'+id, 'meg')
 
-            if False:
-                badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-epo{cropdata}_badepochs.npy'
-            else:
-                badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-dur{cropdata}sepo{epoch_duration}s_badepochs.npy'
+            badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-dur{cropdata}sepo{epoch_duration}s_badepochs.npy'
             badepochsfile = os.path.join(goodepochs_megdir, badepochsfilename)
 
             # --- Check if the bad epochs file exists ---
@@ -300,23 +283,7 @@ def main():
                         fg = SpectralGroupModel(peak_width_limits=peak_width_limits, min_peak_height=min_peak_height,
                         peak_threshold=peak_threshold, max_n_peaks=max_n_peaks, 
                         aperiodic_mode = aperiodic_mode, verbose=False)
-                        
-                    elif package == 'fooof':
-                        raise NotImplementedError('package "fooof" not implemented in this script. The code below is just as a reference for what we did in other scripts with the FOOOF package. It is now recommended to use the specparam package instead.')
-                        # Initialize a FOOOFGroup object, with desired settings
-                        '''
-                        fg = FOOOFGroup(peak_width_limits=peak_width_limits, min_peak_height=min_peak_height,
-                        peak_threshold=peak_threshold, max_n_peaks=max_n_peaks, 
-                        aperiodic_mode = 'fixed', verbose=False)
-                        '''
-                    
-                    # This line was because some values were negative, perhaps after the resampling step. This was causing an error in the fitting, when transforming the PSD to log scale. I substitute the negative values with the minimum found in positive values.
-                    for i in range(spectra.shape[0]):
-                        if any(spectra[i,:]<0):
-                            posidx = np.asarray(spectra[i,:]>0).nonzero()
-                            negidx = np.asarray(spectra[i,:]<0).nonzero()
-                            spectra[i,negidx] = spectra[i,posidx].min()
-                            #print(i, min(spectra[i,:]), max(spectra[i,:]))
+
 
                     # --- Fit the power spectrum model across all channels ---                    
                     fg.fit(freqs, spectra, freq_range)
@@ -347,16 +314,6 @@ def main():
                 del freqs # free memory
                 del data # free memory
                 
-
-                # --- Save the group results (group means all the channels) ---
-                # Note: this saves the offset, exponent, and goodness of fit (R2, RMSE)
-                # for each channel.
-                #df = fg.to_df(peak_org=max_n_peaks)
-
-                #df['channel_name'] = ch_names  
-                
-                # Save the results to a TSV file
-                #df.to_csv(savefile, sep='\t', index_label='channel')
                 
                 t1 = time.time()   
                 deltat = t1 - t0

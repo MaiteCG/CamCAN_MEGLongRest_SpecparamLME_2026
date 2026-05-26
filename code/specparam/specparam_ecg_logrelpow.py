@@ -38,7 +38,6 @@ from specparam.utils.spectral import interpolate_spectra
 import json
 import logging
 logger = logging.getLogger(__name__)
-import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import os
@@ -243,18 +242,7 @@ def main():
                     # --- Define the input file for empty room total PSD data ---
                     ecgpsdfilename = f'sub-{id}_task-{task}_proc-{ecg_proc}{slikemeg}_desc-{psddesc}_psd.hdf5'
                     ecgpsdfile = os.path.join(ecg_megdir, ecgpsdfilename)
-
-                elif ecg_component == 'peak':
-                    raise ValueError('This should not go this way now.')
-                    # ---- Define the input directory for empty room numpy files ----
-                    ecg_derivdir = os.path.join(maindir, bids_project_folder,
-                            'derivatives', ecg_deriv_folder)
-                    ecg_megdir = os.path.join(ecg_derivdir, 'sub-'+id, 'meg')
-
-                    # --- Define the input file for empty room periodic component data ---
-                    emptyroomfilename = f'sub-{id}_task-{ecg_task}_proc-{ecg_proc}_desc-{ecg_psddesc}{megtype}{fitting_param}_{package}_{ecg_component}.npy'
-                    emptyroomfile = os.path.join(ecg_megdir, emptyroomfilename)
-                
+              
                 
                 rest_derivdir = os.path.join(maindir, bids_project_folder,
                         'derivatives', rest_deriv_folder)
@@ -267,21 +255,6 @@ def main():
                     logger.warning(msg)
                     continue
 
-                '''
-                if component == 'aperiodic':
-                    # --- Define the input file for rest numpy files with periodic component ---
-                    compfilename = f'sub-{id}_task-{task}_proc-{proc}_desc-{psddesc}{megtype}{fitting_param}_{package}_{component}.npy'
-                    compfile = os.path.join(rest_megdir, compfilename)
-                else:
-                    raise ValueError(f'Component "{component}" not recognized for this script.')
-                
-                # --- Check if the subject's rest aperiodic component file exists ---
-                if not os.path.isfile(compfile):
-                    msg = f'Subject {id} in phase {phase}, MEG type {megtype}: rest {component} component file not found at {compfile}, skipping. Please run aperiodic_long_components.py first!'
-                    print(msg)
-                    logger.warning(msg)
-                    continue
-                '''
 
                 # ---- Define the input file for subject's rest peak parameters ---
                 restpeaksfilename = f'sub-{id}_task-{task}_proc-{proc}_desc-{psddesc}{megtype}{fitting_param}_specparam.tsv'
@@ -294,27 +267,12 @@ def main():
                     logger.warning(msg)
                     continue
 
-                # --- Load the rest aperiodic component data ---
-                '''
-                print(f'Loading rest {component} data from {compfile}...')
-                comp_data = np.load(compfile, allow_pickle=True).item()
-                rest_spectra = comp_data['spectra']  # shape (n_channels, n_frequencies)
-                rest_freqs = comp_data['freqs']      # shape (n_frequencies,)
-                rest_ch_names = comp_data['channels'] # list of channel names
-                space = comp_data['space']      # sensor space info
-                print(f'Rest {component} data loaded.')
-                del comp_data # free memory
-                '''
-
                 # --- Define the bad epochs file ---
                 goodepochs_derivdir = os.path.join(maindir, bids_project_folder,
                         'derivatives', goodepochs_deriv_folder)
                 goodepochs_megdir = os.path.join(goodepochs_derivdir, 'sub-'+id, 'meg')
 
-                if False:
-                    badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-epo{cropdata}_badepochs.npy'
-                else:
-                    badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-dur{cropdata}sepo{epoch_duration}s_badepochs.npy'
+                badepochsfilename = f'sub-{id}_task-{task}_proc-sss_desc-dur{cropdata}sepo{epoch_duration}s_badepochs.npy'
                 badepochsfile = os.path.join(goodepochs_megdir, badepochsfilename)
 
                 # --- Check if the bad epochs file exists ---
@@ -323,7 +281,6 @@ def main():
                     print(msg)
                     logger.info(msg)
                     continue
-
 
                 # --- Load the empty room data ---
                 if ecg_component == 'total':
@@ -358,19 +315,7 @@ def main():
                         _, ecg_spectra_int = interpolate_spectra(ecg_freqs, ecg_spectra_avg, [21.9, 23.9]) # channels x frequencies
                         del ecg_spectra_avg # free memory
 
-                elif ecg_component == 'peak':
-                    raise ValueError('This should not go this way now.')
-                    # --- Load the empty room periodic component data ---
-                    print(f'Loading empty room {ecg_component} data from {emptyroomfile}...')
-                    ecg_comp_data = np.load(emptyroomfile, allow_pickle=True).item()
-                    ecg_spectra_int = ecg_comp_data['spectra']  # shape (n_channels, n_frequencies)
-                    ecg_freqs = ecg_comp_data['freqs']      # shape (n_frequencies,)
-                    ecg_ch_names = ecg_comp_data['channels'] # list of channel names
-                    space = ecg_comp_data['space']      # sensor space info
-                    print(f'Empty room {ecg_component} data loaded.')
-                    del ecg_comp_data # free memory
-
-
+                
                 # --- Load the subject's rest peak parameters to get the peak bands ---            
                 df_rest = pd.read_csv(restpeaksfile, sep='\t', index_col='channel')
 
@@ -401,19 +346,12 @@ def main():
                                 f_upper = cf + bw / 2
 
                                 # Find frequency indices within the band
-                                '''rest_freq_indices = np.where((rest_freqs >= f_lower) & (rest_freqs <= f_upper))[0]'''
-
                                 total_freq_indices = np.where((ecg_freqs >= 2) & (ecg_freqs <= 40))[0]
 
                                 ecg_freq_indices = np.where((ecg_freqs >= f_lower) & (ecg_freqs <= f_upper))[0]
 
                                 if (len(total_freq_indices) > 0) & (len(ecg_freq_indices) > 0):
                                     # Get channel index
-                                    '''rest_ch_index = rest_ch_names.index(df_rest_out.loc[ch, 'channel_name'])
-
-                                    # Compute mean power within the band
-                                    rest_band_power = np.mean(np.mean(rest_spectra[rest_ch_index, rest_freq_indices]))'''
-
                                     ecg_ch_index = 0 # only one ECG channel
 
                                     ecg_band_power = np.mean(ecg_spectra_int[ecg_ch_index,ecg_freq_indices])

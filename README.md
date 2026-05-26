@@ -115,21 +115,27 @@ The source data for generating the figures and tables are located in `data/`.
 
 The main programs needed for the analyses are:
 
-- Python
+- Python 3.12.10
 
-- MNE-Python, MNE-BIDS, MNE-BIDS pipeline
+- MNE-Python: [Installing MNE-Python &#8212; MNE 1.12.1 documentation](https://mne.tools/stable/install/index.html)
 
-- python-picard
+- MNE-BIDS: [Installation &#8212; MNE-BIDS 0.18.0 documentation](https://mne.tools/mne-bids/stable/install.html)
+
+- MNE-BIDS pipeline: [Installation - MNE-BIDS-Pipeline](https://mne.tools/mne-bids-pipeline/stable/getting_started/install.html)
+
+- python-picard: [python-picard · PyPI](https://pypi.org/project/python-picard/)
 
 - pandas, numpy, matplotlib
 
-- specparam 2.0
+- specparam: ([Spectral Parameterization &#8212; specparam 2.0.0rc6 documentation](https://specparam-tools.github.io/#installation))
 
-- pymer4
+- pymer4: (see below)
   
   
 
-The full list of libraries and versions can be found in `environment.yml`. This file was created with `conda env export --no-builds > environment.yml` from the working environment. To create a new environment from the provided file, you can use the command `conda create --file environment.yml`. Further information on how to create the environment and install the packages can be found elsewhere on the web. 
+We installed each package above individually. 
+
+However, the full list of libraries and versions can be found in `environment.yml`. This file was created with `conda env export --no-builds > environment.yml` from the working environment. To create a new environment from the provided file, you can use the command `conda create --file environment.yml`. Further information on how to create the environment and install the packages can be found elsewhere on the web. 
 
 
 

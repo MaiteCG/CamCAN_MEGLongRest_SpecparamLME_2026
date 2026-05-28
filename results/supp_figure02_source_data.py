@@ -28,7 +28,7 @@ maindir = '' # define the main directory where the BIDS datasets are stored
 bids_project_folder = '' # define the name of the BIDS project folder
 
 # --- Main global variables ---
-pipver = 'stier'
+pipver = ''
 task = 'rest'  # 'emptyroom'
 phases = ['p2', 'p5']
 arms = [1, 2]

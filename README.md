@@ -26,7 +26,7 @@ The **custom** Python files for other **preprocessing steps** are located in `co
 
 - `custom_bad_epochs.py`: Detects bad epochs in **rest MEG** data using muscle artifact z-scoring. Saves the indexes of the good epochs to be used later in the pipeline.
 
-- `custom_icastep.py`: Executes a customized ICA fitting procedure on filtered **rest MEG** data, after removing bad epochs detected with the `custom_bad_epocs.py` script.
+- `custom_icastep.py`: Executes a customized ICA fitting procedure on filtered **rest MEG** data, after removing bad epochs detected with the `custom_bad_epochs.py` script.
 
 - `custom_icaartifacts_schmidt.py`: This script identifies ICA components corresponding to EOG (ocular) and ECG (cardiac) artifacts by applying the correlation-based thresholding method described in Schmidt et al. (2025 eLife).
 
